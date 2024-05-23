@@ -17,13 +17,13 @@ BLD_CYA=$RST$BLD$(tput setaf 6)
 
 # User vars
 DEVICE="$1"
-BUILD_TYPE="$2"
-CUSTOM_PROCS="18"
+AOSP_TAG="$2"
+BUILD_TYPE="$3"
+LUNCH_FLAVOR="aosp_$DEVICE-$AOSP_TAG-$BUILD_TYPE"
 
 # ROM vars
 ROM_DIR="$(pwd)"
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
-LUNCH_FLAVOR="aosp_$DEVICE-$BUILD_TYPE"
 
 for arg in "$@"; do
     case "$arg" in
@@ -32,13 +32,17 @@ for arg in "$@"; do
             rm -rf "$ROM_DIR/out"
             echo -e "${BLD_BLU}Done!${RST}"
             ;;
-        --full-proc)
+        --full-jobs)
             if [ "$(uname -s)" = 'Darwin' ]; then
                 ALL_PROCS=$(sysctl -n machdep.cpu.core_count)
             else
                 ALL_PROCS=$(grep -c '^processor' /proc/cpuinfo)
             fi
-            JOBS="$ALL_PROCS"
+            FLAG_FULL_JOBS=y
+            ;;
+        --j*)
+            CUSTOM_JOBS="${arg#--j}"
+            FLAG_CUSTOM_JOBS=y
             ;;
         --upload-gofile)
             UPLOAD_HOST="gofile"
@@ -49,7 +53,14 @@ for arg in "$@"; do
     esac
 done
 
-[ -z "$JOBS" ] && JOBS="$CUSTOM_PROCS"
+if [ "${FLAG_FULL_JOBS}" = 'y' ]; then
+    JOBS="${ALL_PROCS}"
+elif [ "${FLAG_CUSTOM_JOBS}" = 'y' ]; then
+    JOBS="${CUSTOM_JOBS}"
+else
+    echo -e "${BLD_BLU}WARNING: No defined number of jobs! The default value is 8!!${RST}"
+    JOBS=8
+fi
 
 # Builder
 building() {
