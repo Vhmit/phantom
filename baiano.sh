@@ -1,8 +1,6 @@
 #!/bin/bash
 #
 
-ROM_DIR="$(pwd)"
-
 # Colors
 RST=$(tput sgr0)
 RED=$RST$(tput setaf 1)
@@ -23,53 +21,49 @@ BUILD_TYPE="$2"
 CUSTOM_PROCS="18"
 
 # ROM vars
+ROM_DIR="$(pwd)"
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
+LUNCH_FLAVOR="aosp_$DEVICE-$BUILD_TYPE"
 
-for args in "${@}"; do
-	case "${args}" in
-		--mclean)
-			echo -e "${BLD_BLU}Cleaning compiled files left from old builds...${RST}"
-			rm -rf $ROM_DIR/out
-			echo -e "${BLD_BLU}Done!${RST}"
-			;;
-
-		--all-procs)
-			if [ "$(uname -s)" = 'Darwin' ]; then
- 			    ALL_PROCS=$(sysctl -n machdep.cpu.core_count)
-			else
-			    ALL_PROCS=$(cat /proc/cpuinfo | grep '^processor' | wc -l)
-			fi
-			JOBS="$ALL_PROCS"
-			;;
-
-		# Gofile
-		--upload-gofile)
-			UPLOAD_HOST="gofile"
-			;;
-
-		# PixelDrain
-		--upload-pixeldrain)
-			UPLOAD_HOST="pixeldrain"
-			;;
-	esac
+for arg in "$@"; do
+    case "$arg" in
+        --mclean)
+            echo -e "${BLD_BLU}Cleaning all compiled files left from old builds...${RST}"
+            rm -rf "$ROM_DIR/out"
+            echo -e "${BLD_BLU}Done!${RST}"
+            ;;
+        --full-proc)
+            if [ "$(uname -s)" = 'Darwin' ]; then
+                ALL_PROCS=$(sysctl -n machdep.cpu.core_count)
+            else
+                ALL_PROCS=$(grep -c '^processor' /proc/cpuinfo)
+            fi
+            JOBS="$ALL_PROCS"
+            ;;
+        --upload-gofile)
+            UPLOAD_HOST="gofile"
+            ;;
+        --upload-pixeldrain)
+            UPLOAD_HOST="pixeldrain"
+            ;;
+    esac
 done
 
-if [ -z "$JOBS" ]; then
-    JOBS="$CUSTOM_PROCS"
-fi
+[ -z "$JOBS" ] && JOBS="$CUSTOM_PROCS"
 
 # Builder
 building() {
     source build/envsetup.sh
-    lunch aosp_$DEVICE-$BUILD_TYPE
-    mka bacon $JOBS
+    lunch "$LUNCH_FLAVOR"
+    mka bacon -j "$JOBS"
 }
 
 # Build status
 build_status() {
-    if [ -e $OUT_DIR/PixelOS_$DEVICE-14.0-*.zip ]; then
-        BUILD_PACKAGE=$(basename $(ls $OUT_DIR/PixelOS_$DEVICE-14.0-*.zip))
-        echo -e "${GRN}Package Complete: $OUT_DIR/$BUILD_PACKAGE${RST}"
+    BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-14.0-*.zip" -print -quit)"
+
+    if [ -n "$BUILD_PACKAGE" ]; then
+        echo -e "${GRN}Package Complete: $BUILD_PACKAGE${RST}"
         uploading
     else
         push_buildlog
@@ -83,13 +77,13 @@ uploading() {
 		# Gofile
 		gofile)
 			echo -e "${ORANGE}Starting upload to Gofile..."
-			gofile_upload $OUT_DIR/$BUILD_PACKAGE
+			gofile_upload $BUILD_PACKAGE
 			;;
 
 		# PixelDrain
 		pixeldrain)
 			echo -e "${LIGHT_GREEN}Starting upload to PixelDrain..."
-			pdrain_upload $OUT_DIR/$BUILD_PACKAGE
+			pdrain_upload $BUILD_PACKAGE
 			;;
 
 		*)
