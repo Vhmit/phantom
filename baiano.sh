@@ -17,9 +17,7 @@ BLD_CYA=$RST$BLD$(tput setaf 6)
 
 # User vars
 DEVICE="$1"
-AOSP_TAG="$2"
-BUILD_TYPE="$3"
-LUNCH_FLAVOR="aosp_$DEVICE-$AOSP_TAG-$BUILD_TYPE"
+BUILD_TYPE="$2"
 
 # ROM vars
 ROM_DIR="$(pwd)"
@@ -82,11 +80,11 @@ push_msg() {
 building() {
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
         local start_time=$(date +%s)
-        push_msg "🛠 CI | PixelOS (14)%0ADevice: $DEVICE%0ALunch flavor: $LUNCH_FLAVOR"
+        push_msg "🛠 CI | PixelOS (14)%0ADevice: $DEVICE%0ABuild type: $BUILD_TYPE"
     fi
 
     source build/envsetup.sh
-    lunch "$LUNCH_FLAVOR"
+    breakfast "$DEVICE" "$BUILD_TYPE"
     mka bacon -j "$JOBS"
 
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
