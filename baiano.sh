@@ -53,9 +53,6 @@ for arg in "$@"; do
         --upload-gofile)
             UPLOAD_HOST="gofile"
             ;;
-        --upload-pixeldrain)
-            UPLOAD_HOST="pixeldrain"
-            ;;
     esac
 done
 
@@ -141,10 +138,6 @@ uploading() {
             echo -e "${ORANGE}Starting upload to Gofile...${RST}"
             gofile_upload $BUILD_PACKAGE
             ;;
-        pixeldrain)
-            echo -e "${LIGHT_GREEN}Starting upload to PixelDrain...${RST}"
-            pdrain_upload $BUILD_PACKAGE
-            ;;
         *)
             echo -e "${BLD_BLU}Upload host not defined!${RST}"
             ;;
@@ -152,24 +145,6 @@ uploading() {
 }
 
 # Upload ROM package
-pdrain_upload() {
-    local FILE_PATH="$1"
-    local FILE_NAME="${FILE_PATH##*/}"
-
-    local response
-    response=$(curl -# -F "name=$FILE_NAME" -F "file=@$FILE_PATH" "https://pixeldrain.com/api/file")
-
-    local FILE_ID
-    FILE_ID=$(echo "$response" | grep -Po '(?<="id":")[^"]*')
-
-    echo -e "${LIGHT_GREEN}Done!${RST}"
-    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-        push_msg "Uploaded to PixelDrain%0A1. $BUILD_ID | <b>SHA256: </b>$SHA256SUM_CHECK%0A2. Download: https://pixeldrain.com/u/$FILE_ID"
-    else
-        echo -e "${LIGHT_GREEN}Download: https://pixeldrain.com/u/$FILE_ID${RST}"
-    fi
-}
-
 gofile_upload() {
     local FILE_PATH="$1"
     local FILE_NAME="${FILE_PATH##*/}"
