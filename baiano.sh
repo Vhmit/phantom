@@ -123,7 +123,7 @@ build_status() {
     if [ -n "$BUILD_PACKAGE" ]; then
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
             BUILD_ID=$(basename $BUILD_PACKAGE)
-            SHA256SUM_CHECK=$(sha256sum $BUILD_PACKAGE | awk '{print $1}')
+            MD5_CHECK=$(md5sum $BUILD_PACKAGE | awk '{print $1}')
             push_msg "Build completed successfully%0ATotal time elapsed: <b>$build_time</b>"
         fi
         uploading
@@ -161,7 +161,7 @@ gofile_upload() {
 
         echo -e "${ORANGE}Done!${RST}"
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-            push_msg "Uploaded to Gofile%0A1. $BUILD_ID | <b>SHA256: </b>$SHA256SUM_CHECK%0A1. Download: $URL_ID"
+            push_msg "Uploaded to Gofile%0A1. $BUILD_ID | <b>MD5: </b>$MD5_CHECK%0A1. Download: $URL_ID"
         else
             echo -e "${ORANGE}Download: $URL_ID${RST}"
         fi
