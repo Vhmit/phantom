@@ -33,10 +33,13 @@ fi
 
 for arg in "$@"; do
     case "$arg" in
-        --mclean)
+        --makeclean)
             echo -e "${BLD_BLU}Cleaning all compiled files left from old builds...${RST}"
             rm -rf "$ROM_DIR/out"
             echo -e "${BLD_BLU}Done!${RST}"
+            ;;
+        --installclean)
+            FLAG_INSTALLCLEAN_BUILD=y
             ;;
         --full-jobs)
             if [ "$(uname -s)" = 'Darwin' ]; then
@@ -82,6 +85,9 @@ building() {
 
     source build/envsetup.sh
     breakfast "$DEVICE" "$BUILD_TYPE"
+    if [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
+    make installclean
+    fi
     mka bacon -j "$JOBS"
 
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
