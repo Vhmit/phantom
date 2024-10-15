@@ -1,6 +1,4 @@
 #!/bin/bash
-#
-
 # Colors
 RST=$(tput sgr0)
 RED=$RST$(tput setaf 1)
@@ -31,6 +29,7 @@ if [ -f "$ROM_DIR/ids.txt" ]; then
     TOPIC_ID=$(awk 'NR==3{print}' ids.txt)
 fi
 
+# Arg parsing
 for arg in "$@"; do
     case "$arg" in
         --makeclean)
@@ -61,7 +60,7 @@ if [ "${FLAG_FULL_JOBS}" = 'y' ]; then
 elif [ "${FLAG_CUSTOM_JOBS}" = 'y' ]; then
     JOBS="$CUSTOM_JOBS"
 else
-    echo -e "${BLD_BLU}WARNING: No defined number of jobs! The default value is 16!!${RST}"
+    echo -e "${BLD_BLU}WARNING: No number of jobs defined! Using default value: 16.${RST}"
     JOBS=16
 fi
 
@@ -73,7 +72,7 @@ push_msg() {
          -d "reply_to_message_id=$TOPIC_ID"
 }
 
-# Builder
+# Lunch time
 lunching() {
     rm -f lunch_log.txt
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
@@ -85,9 +84,9 @@ lunching() {
     breakfast "$DEVICE" "$BUILD_TYPE" &> lunch_log.txt
 
     if grep -q "dumpvars failed with" lunch_log.txt; then
-    echo -e "${BLD_RED}Build failed!${RST}"
+    echo -e "${BLD_RED}Lunch failed!${RST}"
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-            push_msg "Build failed"
+            push_msg "Lunch failed"
             curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"lunch_log.txt" \
             "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
         fi
@@ -96,6 +95,7 @@ lunching() {
     fi
 }
 
+# Build time
 building() {
     [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean
     mka bacon -j "$JOBS"
@@ -108,7 +108,7 @@ building() {
     fi
 }
 
-# Build time
+# Timer
 count_build_time() {
     local start_time=$1
     local end_time=$2
@@ -148,6 +148,7 @@ build_status() {
     fi
 }
 
+# File upload
 uploading() {
     case "$UPLOAD_HOST" in
         gofile)
@@ -155,12 +156,12 @@ uploading() {
             gofile_upload "$BUILD_PACKAGE"
             ;;
         *)
-            echo -e "${BLD_BLU}Upload host not defined!${RST}"
+            echo -e "${BLD_BLU}No upload host defined!${RST}"
             ;;
     esac
 }
 
-# Upload ROM package
+# Upload to Gofile
 gofile_upload() {
     local FILE_PATH="$1"
     local FILE_NAME="${FILE_PATH##*/}"
@@ -175,7 +176,7 @@ gofile_upload() {
         local URL_ID
         URL_ID=$(echo "$response" | grep -Po '(?<="downloadPage":")[^"]*')
 
-        echo -e "${ORANGE}Done!${RST}"
+        echo -e "${ORANGE}Upload complete!${RST}"
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
             push_msg "Uploaded to Gofile%0A1. $BUILD_ID | <b>MD5: </b>$MD5_CHECK%0A1. Download: $URL_ID"
         else
@@ -187,6 +188,7 @@ gofile_upload() {
     fi
 }
 
+# Build log
 push_log() {
     local LOG="$ROM_DIR/out/error.log"
 
