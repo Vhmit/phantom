@@ -77,14 +77,27 @@ push_msg() {
 }
 
 # Builder
-building() {
+lunching() {
+    rm -f lunch_log.txt
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
         local start_time=$(date +%s)
         push_msg "🛠 CI | PixelOS (14)%0ADevice: $DEVICE%0ABuild type: $BUILD_TYPE"
     fi
 
     source build/envsetup.sh
-    breakfast "$DEVICE" "$BUILD_TYPE"
+    breakfast "$DEVICE" "$BUILD_TYPE" &> lunch_log.txt
+    if grep -q "dumpvars failed with" lunch_log.txt; then
+    echo -e "${BLD_RED}Build failed!${RST}"
+        if [ "${FLAG_CI_BUILD}" = 'y' ]; then
+            push_msg "Build failed"
+            curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"lunch_log.txt" "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
+        fi
+    else
+    building
+    fi
+}
+
+building() {
     if [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
     make installclean
     fi
@@ -194,4 +207,4 @@ push_log() {
     fi
 }
 
-building
+lunching
