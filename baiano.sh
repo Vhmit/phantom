@@ -24,17 +24,17 @@ ROM_DIR="$(pwd)"
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
 # CI
-if [ -e $ROM_DIR/ids.txt ]; then
+if [ -f "$ROM_DIR/ids.txt" ]; then
     FLAG_CI_BUILD=y
-    CHAT_ID=$(awk "NR==1{print;exit}" ids.txt)
-    BOT_TOKEN=$(awk "NR==2{print;exit}" ids.txt)
-    TOPIC_ID=$(awk "NR==3{print;exit}" ids.txt)
+    CHAT_ID=$(awk 'NR==1{print}' ids.txt)
+    BOT_TOKEN=$(awk 'NR==2{print}' ids.txt)
+    TOPIC_ID=$(awk 'NR==3{print}' ids.txt)
 fi
 
 for arg in "$@"; do
     case "$arg" in
         --makeclean)
-            echo -e "${BLD_BLU}Cleaning all compiled files left from old builds...${RST}"
+           echo -e "${BLD_BLU}Cleaning all compiled files from previous builds...${RST}"
             rm -rf "$ROM_DIR/out"
             echo -e "${BLD_BLU}Done!${RST}"
             ;;
@@ -42,11 +42,7 @@ for arg in "$@"; do
             FLAG_INSTALLCLEAN_BUILD=y
             ;;
         --full-jobs)
-            if [ "$(uname -s)" = 'Darwin' ]; then
-                ALL_PROCS=$(sysctl -n machdep.cpu.core_count)
-            else
-                ALL_PROCS=$(grep -c '^processor' /proc/cpuinfo)
-            fi
+            ALL_PROCS=$(nproc)
             FLAG_FULL_JOBS=y
             ;;
         --j*)
@@ -61,9 +57,9 @@ done
 
 # Jobs
 if [ "${FLAG_FULL_JOBS}" = 'y' ]; then
-    JOBS="${ALL_PROCS}"
+    JOBS="$ALL_PROCS"
 elif [ "${FLAG_CUSTOM_JOBS}" = 'y' ]; then
-    JOBS="${CUSTOM_JOBS}"
+    JOBS="$CUSTOM_JOBS"
 else
     echo -e "${BLD_BLU}WARNING: No defined number of jobs! The default value is 16!!${RST}"
     JOBS=16
@@ -71,8 +67,9 @@ fi
 
 # Send Telegram message
 push_msg() {
+    local message="$1"
     curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-         -d "chat_id=$CHAT_ID&parse_mode=html&text=$1" \
+         -d "chat_id=$CHAT_ID&parse_mode=html&text=$message" \
          -d "reply_to_message_id=$TOPIC_ID"
 }
 
@@ -86,21 +83,21 @@ lunching() {
 
     source build/envsetup.sh
     breakfast "$DEVICE" "$BUILD_TYPE" &> lunch_log.txt
+
     if grep -q "dumpvars failed with" lunch_log.txt; then
     echo -e "${BLD_RED}Build failed!${RST}"
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
             push_msg "Build failed"
-            curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"lunch_log.txt" "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
+            curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"lunch_log.txt" \
+            "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
         fi
     else
-    building
+        building
     fi
 }
 
 building() {
-    if [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
-    make installclean
-    fi
+    [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean
     mka bacon -j "$JOBS"
 
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
@@ -141,8 +138,8 @@ build_status() {
 
     if [ -n "$BUILD_PACKAGE" ]; then
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-            BUILD_ID=$(basename $BUILD_PACKAGE)
-            MD5_CHECK=$(md5sum $BUILD_PACKAGE | awk '{print $1}')
+            BUILD_ID=$(basename "$BUILD_PACKAGE")
+            MD5_CHECK=$(md5sum "$BUILD_PACKAGE" | awk '{print $1}')
             push_msg "Build completed successfully%0ATotal time elapsed: <b>$build_time</b>"
         fi
         uploading
@@ -152,10 +149,10 @@ build_status() {
 }
 
 uploading() {
-    case $UPLOAD_HOST in
+    case "$UPLOAD_HOST" in
         gofile)
             echo -e "${ORANGE}Starting upload to Gofile...${RST}"
-            gofile_upload $BUILD_PACKAGE
+            gofile_upload "$BUILD_PACKAGE"
             ;;
         *)
             echo -e "${BLD_BLU}Upload host not defined!${RST}"
@@ -186,19 +183,18 @@ gofile_upload() {
         fi
     else
         echo -e "${RED}Upload failed!${RST}"
-        if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-            push_msg "Upload failed!"
-        fi
+        [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
     fi
 }
 
 push_log() {
-    LOG="$ROM_DIR/out/error.log"
+    local LOG="$ROM_DIR/out/error.log"
 
     echo -e "${BLD_RED}Build failed!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
         push_msg "Build failed"
-        curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"$LOG" "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
+        curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"$LOG" \
+            "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
     else
         PAST_LOG="$(cat $LOG)"
         response=$(curl -s -d "$PAST_LOG" https://paste.crdroid.net/documents)
