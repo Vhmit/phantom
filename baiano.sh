@@ -66,31 +66,34 @@ fi
 
 # Send Telegram message
 push_msg() {
-    local message="$1"
+    local MSG="$1"
+
     curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-         -d "chat_id=$CHAT_ID&parse_mode=html&text=$message" \
-         -d "reply_to_message_id=$TOPIC_ID"
+         -d "chat_id=$CHAT_ID&parse_mode=html&text=$MSG" \
+         -d "reply_to_message_id=$TOPIC_ID" \
+         -d disable_web_page_preview=true
 }
 
 # Lunch time
 lunching() {
+    [ "${FLAG_CI_BUILD}" = 'y' ] && local start_time=$(date +%s)
     rm -f lunch_log.txt
-    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-        local start_time=$(date +%s)
-        push_msg "🛠 CI | PixelOS (14)%0ADevice: $DEVICE%0ABuild type: $BUILD_TYPE"
-    fi
 
     source build/envsetup.sh
     breakfast "$DEVICE" "$BUILD_TYPE" &> lunch_log.txt
 
     if grep -q "dumpvars failed with" lunch_log.txt; then
-    echo -e "${BLD_RED}Lunch failed!${RST}"
+        echo -e "${BLD_RED}Lunch failed!${RST}"
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
             push_msg "Lunch failed"
             curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"lunch_log.txt" \
             "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
         fi
     else
+        if [ "${FLAG_CI_BUILD}" = 'y' ]; then
+            CUSTOM_ANDROID_VERSION=$(grep '^PLATFORM_VERSION=' lunch_log.txt | cut -d'=' -f2)
+            push_msg "🛠 CI | PixelOS ($CUSTOM_ANDROID_VERSION)%0ADevice: $DEVICE%0ABuild type: $BUILD_TYPE"
+        fi
         building
     fi
 }
@@ -134,11 +137,11 @@ build_status() {
         build_time=$(count_build_time $start_time $end_time)
     fi
 
-    BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-14.0-*.zip" -print -quit)"
+    BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-$CUSTOM_ANDROID_VERSION.0-*.zip" -print -quit)"
 
     if [ -n "$BUILD_PACKAGE" ]; then
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-            BUILD_ID=$(basename "$BUILD_PACKAGE")
+            BUILD_NAME=$(basename "$BUILD_PACKAGE")
             MD5_CHECK=$(md5sum "$BUILD_PACKAGE" | awk '{print $1}')
             push_msg "Build completed successfully%0ATotal time elapsed: <b>$build_time</b>"
         fi
@@ -178,7 +181,7 @@ gofile_upload() {
 
         echo -e "${ORANGE}Upload complete!${RST}"
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-            push_msg "Uploaded to Gofile%0A1. $BUILD_ID | <b>MD5: </b>$MD5_CHECK%0A1. Download: $URL_ID"
+            push_msg "Uploaded to Gofile%0A1. $BUILD_NAME | <b>MD5: </b>$MD5_CHECK%0Download: $URL_ID"
         else
             echo -e "${ORANGE}Download: $URL_ID${RST}"
         fi
