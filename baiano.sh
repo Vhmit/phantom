@@ -91,8 +91,9 @@ lunching() {
         fi
     else
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
+            BUILD_NUMBER=$(grep '^BUILD_ID=' lunch_log.txt | cut -d'=' -f2)
             CUSTOM_ANDROID_VERSION=$(grep '^PLATFORM_VERSION=' lunch_log.txt | cut -d'=' -f2)
-            push_msg "🛠 CI | PixelOS ($CUSTOM_ANDROID_VERSION)%0ADevice: $DEVICE%0ABuild type: $BUILD_TYPE"
+            push_msg "<b>🛠 CI | PixelOS ($CUSTOM_ANDROID_VERSION)</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Build type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
         fi
         building
     fi
@@ -181,7 +182,7 @@ gofile_upload() {
 
         echo -e "${ORANGE}Upload complete!${RST}"
         if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-            push_msg "Uploaded to Gofile%0A1. $BUILD_NAME | <b>MD5: </b>$MD5_CHECK%0Download: $URL_ID"
+            push_msg "Uploaded to Gofile%0A1. $BUILD_NAME | <b>MD5: </b><code>$MD5_CHECK</code>%0A<b>Download:</b> $URL_ID"
         else
             echo -e "${ORANGE}Download: $URL_ID${RST}"
         fi
