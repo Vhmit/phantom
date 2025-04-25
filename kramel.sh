@@ -14,10 +14,10 @@ TM=$(date '+%Y%m%d-%H%M')
 
 # Kramel name
 if [ "${BUILD_TYPE}" = 'REL' ]; then
-    ZIP_NAME="N0kramel-alioth-$TM"
+    ZIP_NAME="N0kramel-$DEVICE-$TM"
 else
     COMMIT_SHA="$(git rev-parse --short HEAD)"
-    ZIP_NAME="N0kramel-alioth-$TM-$COMMIT_SHA"
+    ZIP_NAME="N0kramel-$DEVICE-$TM-$COMMIT_SHA"
 fi
 
 # Kramel Version
@@ -55,7 +55,7 @@ build_kernel() {
 
     START_TIME=$(date +%s)
     send_msg "<b>CI Build Triggered</b>%0A<b>Kernel Version : </b><code>$KERVER</code>%0A<b>Compiler Used : </b><code>$KBUILD_COMPILER_STRING</code>%0A<b>Top Commit : </b><code>$COMMIT_HEAD</code>"
-    make O=$OUT_DIR CC=clang vendor/alioth_defconfig &> defc_log.txt
+    make O=$OUT_DIR CC=clang $DEFCONFIG &> defc_log.txt
     if [ $? -ne 0 ]; then
         send_msg "Build Failed!"
         send_file defc_log.txt
@@ -74,7 +74,7 @@ build_kernel() {
 
     send_msg "Build completed successfully%0ATotal time elapsed: <b>$BUILD_TIME</b>"
 
-    git clone --depth=1 https://github.com/GustavoMends/AnyKernel3.git -b alioth ak3
+    git clone --depth=1 https://github.com/GustavoMends/AnyKernel3.git -b $DEVICE ak3
 }
 
 move_files() {
