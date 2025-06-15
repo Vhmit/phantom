@@ -15,7 +15,16 @@ BLD_CYA=$RST$BLD$(tput setaf 6)
 
 ROM_DIR="$(pwd)"
 
-# User vars
+# Guard
+baiano_not_dream() {
+  echo -e "${BLD_RED}Build aborted!${RST}"
+  FLAG_BUILD_ABORTED=y
+  exit 1
+}
+
+trap baiano_not_dream INT
+
+# Device
 DEVICE="$1"
 BUILD_TYPE="$2"
 
@@ -64,6 +73,8 @@ fi
 
 # Send Telegram message
 push_msg() {
+  [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
+
   local MSG="$1"
 
   curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
@@ -72,8 +83,29 @@ push_msg() {
     -d disable_web_page_preview=true
 }
 
+# Check device vars
+check_vars() {
+  if [ -z "$DEVICE" ] || [ -z "$BUILD_TYPE" ]; then
+    echo -e "${BLD_RED}WARNING: DEVICE and BUILD_TYPE must be defined!${RST}"
+    echo -e "${BLD_CYA}Usage: $0 <DEVICE> <BUILD_TYPE>${RST}"
+    echo -e "${BLD_CYA}Example: $0 alioth userdebug${RST}"
+    exit 1
+  fi
+
+  if [[ "$BUILD_TYPE" != "eng" && "$BUILD_TYPE" != "userdebug" && "$BUILD_TYPE" != "user" ]]; then
+    echo -e "${BLD_RED}WARNING: Invalid BUILD_TYPE: '$BUILD_TYPE'${RST}"
+    echo -e "${BLD_CYA}Choose: eng, userdebug or user${RST}"
+    exit 1
+  fi
+
+  lunching
+
+}
+
 # Lunch time
 lunching() {
+  [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
+
   [ "${FLAG_CI_BUILD}" = 'y' ] && local start_time=$(date +%s)
   rm -f lunch_log.txt build_log.txt
 
@@ -130,6 +162,8 @@ count_build_time() {
 
 # Build status
 build_status() {
+  [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
+
   if [ "${FLAG_CI_BUILD}" = 'y' ]; then
     local start_time=$1
     local end_time=$2
@@ -192,6 +226,8 @@ gofile_upload() {
 
 # Build log
 push_log() {
+  [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
+
   local LOG="$ROM_DIR/out/error.log"
 
   echo -e "${BLD_RED}Build failed!${RST}"
@@ -207,4 +243,4 @@ push_log() {
   fi
 }
 
-lunching
+check_vars
