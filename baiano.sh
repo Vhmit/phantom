@@ -13,13 +13,11 @@ BLD_GRN=$RST$BLD$(tput setaf 2)
 BLD_BLU=$RST$BLD$(tput setaf 4)
 BLD_CYA=$RST$BLD$(tput setaf 6)
 
+ROM_DIR="$(pwd)"
+
 # User vars
 DEVICE="$1"
 BUILD_TYPE="$2"
-
-# ROM vars
-ROM_DIR="$(pwd)"
-OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
 # CI
 if [ -f "$ROM_DIR/ids.txt" ]; then
@@ -77,7 +75,7 @@ push_msg() {
 # Lunch time
 lunching() {
   [ "${FLAG_CI_BUILD}" = 'y' ] && local start_time=$(date +%s)
-  rm -f lunch_log.txt
+  rm -f lunch_log.txt build_log.txt
 
   source build/envsetup.sh
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
@@ -101,8 +99,8 @@ lunching() {
 
 # Build time
 building() {
-  [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean
-  mka bacon -j "$JOBS"
+  [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean &>build_log.txt
+  mka bacon -j "$JOBS" &>build_log.txt
 
   if [ "${FLAG_CI_BUILD}" = 'y' ]; then
     local end_time=$(date +%s)
@@ -138,9 +136,9 @@ build_status() {
     build_time=$(count_build_time $start_time $end_time)
   fi
 
-  BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-$CUSTOM_ANDROID_VERSION.0-*.zip" -print -quit)"
+  if grep -q "build bacon (priority: 1)" build_log.txt; then
+    BUILD_PACKAGE=$(grep '^Package Complete:' build_log.txt | cut -d':' -f2)
 
-  if [ -n "$BUILD_PACKAGE" ]; then
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       BUILD_NAME=$(basename "$BUILD_PACKAGE")
       MD5_CHECK=$(md5sum "$BUILD_PACKAGE" | awk '{print $1}')
