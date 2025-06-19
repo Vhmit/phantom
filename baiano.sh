@@ -28,12 +28,10 @@ trap baiano_not_dream INT
 DEVICE="$1"
 BUILD_TYPE="$2"
 
-# CI
-if [ -f "$ROM_DIR/ids.txt" ]; then
+# Vars
+if [ -f "$ROM_DIR/vars.txt" ]; then
   FLAG_CI_BUILD=y
-  CHAT_ID=$(awk 'NR==1{print}' ids.txt)
-  BOT_TOKEN=$(awk 'NR==2{print}' ids.txt)
-  TOPIC_ID=$(awk 'NR==3{print}' ids.txt)
+  export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
 fi
 
 # Arg parsing
