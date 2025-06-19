@@ -53,6 +53,9 @@ for arg in "$@"; do
       CUSTOM_JOBS="${arg#--j}"
       FLAG_CUSTOM_JOBS=y
       ;;
+    --upload-gdrive)
+      UPLOAD_HOST="gdrive"
+      ;;
     --upload-gofile)
       UPLOAD_HOST="gofile"
       ;;
@@ -185,6 +188,10 @@ build_status() {
 # File upload
 uploading() {
   case "$UPLOAD_HOST" in
+    gdrive)
+      echo -e "${GRN}Starting upload to Google Drive...${RST}"
+      rclone_upload "$BUILD_PACKAGE" "gdrive"
+      ;;
     gofile)
       echo -e "${ORANGE}Starting upload to Gofile...${RST}"
       gofile_upload "$BUILD_PACKAGE"
@@ -220,6 +227,32 @@ gofile_upload() {
     echo -e "${RED}Upload failed!${RST}"
     [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
   fi
+}
+
+rclone_upload() {
+  local FILE_PATH="$1"
+  local HOST="$2"
+
+  RCLONE_BIN=$(command -v rclone)
+  RCLONE_CONF="$HOME/.config/rclone/rclone.conf"
+
+  if [[ -z "$RCLONE_BIN" ]]; then
+    echo "${RED}Warning: rclone is not installed.${RST}"
+    exit 1
+  elif [[ ! -f "$RCLONE_CONF" ]]; then
+    echo "${RED}Warning: rclone.config not found.${RST}"
+    exit 1
+  fi
+
+  if [[ -z "${UPLOAD_FOLDER:-}" ]]; then
+    UPLOAD_FOLDER=android
+  fi
+
+  rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
+
+  echo -e "${GRN}Upload complete!${RST}"
+  [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload completed%0A1. $BUILD_NAME"
+
 }
 
 # Build log
