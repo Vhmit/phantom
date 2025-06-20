@@ -59,6 +59,9 @@ for arg in "$@"; do
     --upload-gofile)
       UPLOAD_HOST="gofile"
       ;;
+    --upload-pixeldrain)
+      UPLOAD_HOST="pixeldrain"
+      ;;
   esac
 done
 
@@ -196,6 +199,10 @@ uploading() {
       echo -e "${ORANGE}Starting upload to Gofile...${RST}"
       gofile_upload "$BUILD_PACKAGE"
       ;;
+    pixeldrain)
+      echo -e "${GRN}Starting upload to PixelDrain...${RST}"
+      pixeldrain_upload "$BUILD_PACKAGE"
+      ;;
     *)
       echo -e "${BLD_BLU}No upload host defined!${RST}"
       ;;
@@ -226,6 +233,34 @@ gofile_upload() {
   else
     echo -e "${RED}Upload failed!${RST}"
     [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
+  fi
+}
+
+# Upload to PixelDrain
+pixeldrain_upload() {
+  local FILE_PATH="$1"
+  local FILE_NAME="${FILE_PATH##*/}"
+
+  if [ -z "$PIXELDRAIN_API_TOKEN" ]; then
+    echo -e "${RED}Warning: PIXELDRAIN_API_TOKEN not found.${RST}"
+    return 1
+  fi
+
+  response=$(curl -T "$FILE_PATH" -u :$PIXELDRAIN_API_TOKEN https://pixeldrain.com/api/file/)
+
+  UPLOAD_ID=$(echo "$response" | grep -Po '(?<="id":")[^\"]*')
+  if [ -n "$UPLOAD_ID" ]; then
+    PD_URL="https://pixeldrain.com/u/$UPLOAD_ID"
+    echo -e "${GRN}Upload complete!${RST}"
+    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
+      push_msg "Uploaded to PixelDrain%0A1. $BUILD_NAME%0A<b>Download:</b> $PD_URL"
+    else
+      echo -e "${GRN}Download: $PD_URL${RST}"
+    fi
+  else
+    echo -e "${RED}Upload failed!${RST}"
+    [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
+    return 1
   fi
 }
 
