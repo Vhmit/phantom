@@ -28,6 +28,9 @@ trap baiano_not_dream INT
 DEVICE="$1"
 BUILD_TYPE="$2"
 
+# Out
+OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
+
 # Vars
 if [ -f "$ROM_DIR/vars.txt" ]; then
   FLAG_CI_BUILD=y
@@ -175,12 +178,12 @@ build_status() {
     build_time=$(count_build_time $start_time $end_time)
   fi
 
-  if grep -q "build bacon (priority: 1)" build_log.txt; then
+  if grep -q "build bacon" build_log.txt; then
     BUILD_PACKAGE=$(grep '^Package Complete:' build_log.txt | cut -d':' -f2)
 
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       BUILD_NAME=$(basename "$BUILD_PACKAGE")
-      SHA256_CHECK=$(sha256sum "$BUILD_PACKAGE" | awk '{print $1}')
+      SHA256_CHECK=$(sha256sum "$OUT_DIR/$BUILD_NAME" | awk '{print $1}')
       push_msg "Build completed successfully%0ATotal time elapsed: <b>$build_time</b>"
     fi
     uploading
