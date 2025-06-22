@@ -43,6 +43,7 @@ for arg in "$@"; do
       echo -e "${BLD_BLU}Done!${RST}"
       ;;
     --installclean)
+      echo -e "${BLD_BLU}Cleaning compiled files from previous builds...${RST}"
       FLAG_INSTALLCLEAN_BUILD=y
       ;;
     --full-jobs)
@@ -90,15 +91,15 @@ push_msg() {
 # Check device vars
 check_vars() {
   if [ -z "$DEVICE" ] || [ -z "$BUILD_TYPE" ]; then
-    echo -e "${BLD_RED}WARNING: DEVICE and BUILD_TYPE must be defined!${RST}"
-    echo -e "${BLD_CYA}Usage: $0 <DEVICE> <BUILD_TYPE>${RST}"
-    echo -e "${BLD_CYA}Example: $0 alioth userdebug${RST}"
+    echo -e "${BLD_RED}ERROR: DEVICE and BUILD_TYPE must be defined!${RST}"
+    echo -e "${BLD_RED}Usage: $0 <DEVICE> <BUILD_TYPE>${RST}"
+    echo -e "${BLD_RED}Example: $0 alioth userdebug${RST}"
     exit 1
   fi
 
   if [[ "$BUILD_TYPE" != "eng" && "$BUILD_TYPE" != "userdebug" && "$BUILD_TYPE" != "user" ]]; then
-    echo -e "${BLD_RED}WARNING: Invalid BUILD_TYPE: '$BUILD_TYPE'${RST}"
-    echo -e "${BLD_CYA}Choose: eng, userdebug or user${RST}"
+    echo -e "${BLD_RED}ERROR: Invalid BUILD_TYPE: '$BUILD_TYPE'${RST}"
+    echo -e "${BLD_RED}Choose: eng, userdebug or user${RST}"
     exit 1
   fi
 
@@ -117,7 +118,7 @@ lunching() {
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
 
   if grep -q "dumpvars failed with" lunch_log.txt; then
-    echo -e "${BLD_RED}Lunch failed!${RST}"
+    echo -e "${BLD_RED}ERROR: Lunch failed!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       push_msg "Lunch failed"
       curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"lunch_log.txt" \
@@ -200,11 +201,11 @@ uploading() {
       gofile_upload "$BUILD_PACKAGE"
       ;;
     pixeldrain)
-      echo -e "${GRN}Starting upload to PixelDrain...${RST}"
+      echo -e "${LIGHT_GREEN}Starting upload to PixelDrain...${RST}"
       pixeldrain_upload "$BUILD_PACKAGE"
       ;;
     *)
-      echo -e "${BLD_BLU}No upload host defined!${RST}"
+      echo -e "${BLD_BLU}WARNING: No upload host defined!${RST}"
       ;;
   esac
 }
@@ -231,7 +232,7 @@ gofile_upload() {
       echo -e "${ORANGE}Download: $URL_ID${RST}"
     fi
   else
-    echo -e "${RED}Upload failed!${RST}"
+    echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
     [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
   fi
 }
@@ -242,7 +243,7 @@ pixeldrain_upload() {
   local FILE_NAME="${FILE_PATH##*/}"
 
   if [ -z "$PIXELDRAIN_API_TOKEN" ]; then
-    echo -e "${RED}Warning: PIXELDRAIN_API_TOKEN not found.${RST}"
+    echo -e "${BLD_RED}ERROR: PIXELDRAIN_API_TOKEN not found!${RST}"
     return 1
   fi
 
@@ -251,14 +252,14 @@ pixeldrain_upload() {
   UPLOAD_ID=$(echo "$response" | grep -Po '(?<="id":")[^\"]*')
   if [ -n "$UPLOAD_ID" ]; then
     PD_URL="https://pixeldrain.com/u/$UPLOAD_ID"
-    echo -e "${GRN}Upload complete!${RST}"
+    echo -e "${LIGHT_GREEN}Upload complete!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       push_msg "Uploaded to PixelDrain%0A1. $BUILD_NAME%0A<b>Download:</b> $PD_URL"
     else
-      echo -e "${GRN}Download: $PD_URL${RST}"
+      echo -e "${LIGHT_GREEN}Download: $PD_URL${RST}"
     fi
   else
-    echo -e "${RED}Upload failed!${RST}"
+    echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
     [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
     return 1
   fi
@@ -272,10 +273,10 @@ rclone_upload() {
   RCLONE_CONF="$HOME/.config/rclone/rclone.conf"
 
   if [[ -z "$RCLONE_BIN" ]]; then
-    echo "${RED}Warning: rclone is not installed.${RST}"
+    echo "${BLD_RED}ERROR: rclone is not installed!${RST}"
     exit 1
   elif [[ ! -f "$RCLONE_CONF" ]]; then
-    echo "${RED}Warning: rclone.config not found.${RST}"
+    echo "${BLD_RED}ERROR: rclone.config not found!${RST}"
     exit 1
   fi
 
@@ -296,7 +297,7 @@ push_log() {
 
   local LOG="$ROM_DIR/out/error.log"
 
-  echo -e "${BLD_RED}Build failed!${RST}"
+  echo -e "${BLD_RED}ERROR: Build failed!${RST}"
   if [ "${FLAG_CI_BUILD}" = 'y' ]; then
     push_msg "Build failed"
     curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"$LOG" \
