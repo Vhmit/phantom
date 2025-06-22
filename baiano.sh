@@ -131,7 +131,7 @@ lunching() {
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       BUILD_NUMBER=$(grep '^BUILD_ID=' lunch_log.txt | cut -d'=' -f2)
       CUSTOM_ANDROID_VERSION=$(grep '^PLATFORM_VERSION=' lunch_log.txt | cut -d'=' -f2)
-      push_msg "<b>🛠 CI | PixelOS ($CUSTOM_ANDROID_VERSION)</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Build type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
+      push_msg "<b>🛠 CI | PixelOS $CUSTOM_ANDROID_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
     fi
     building
   fi
@@ -161,9 +161,9 @@ count_build_time() {
   local hours=$((duration / 3600))
 
   local time_message=""
-  [ $hours -gt 0 ] && time_message="${hours}h "
-  [ $minutes -gt 0 ] && time_message="${time_message}${minutes}min "
-  [ $seconds -gt 0 ] && time_message="${time_message}${seconds}s "
+  [ $hours -gt 0 ] && time_message="${hours} h "
+  [ $minutes -gt 0 ] && time_message="${time_message}${minutes} min "
+  [ $seconds -gt 0 ] && time_message="${time_message}${seconds} s "
 
   echo "$time_message"
 }
@@ -184,7 +184,7 @@ build_status() {
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       BUILD_NAME=$(basename "$BUILD_PACKAGE")
       SHA256_CHECK=$(sha256sum "$OUT_DIR/$BUILD_NAME" | awk '{print $1}')
-      push_msg "Build completed successfully%0ATotal time elapsed: <b>$build_time</b>"
+      push_msg "<b>✅ Build completed</b>%0A⏱ <b>$build_time</b>"
     fi
     uploading
   else
@@ -197,17 +197,21 @@ uploading() {
   case "$UPLOAD_HOST" in
     gdrive)
       echo -e "${GRN}Starting upload to Google Drive...${RST}"
+      UPLOAD_HOST_NAME="Google Drive"
       rclone_upload "$BUILD_PACKAGE" "gdrive"
       ;;
     gofile)
       echo -e "${ORANGE}Starting upload to Gofile...${RST}"
+      UPLOAD_HOST_NAME="Gofile"
       gofile_upload "$BUILD_PACKAGE"
       ;;
     pixeldrain)
       echo -e "${LIGHT_GREEN}Starting upload to PixelDrain...${RST}"
+      UPLOAD_HOST_NAME="Pixel Drain"
       pixeldrain_upload "$BUILD_PACKAGE"
       ;;
     *)
+      [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "<b>✅ Build completed</b>%0A⏱ <b>$build_time</b>"
       echo -e "${BLD_BLU}WARNING: No upload host defined!${RST}"
       ;;
   esac
@@ -230,7 +234,7 @@ gofile_upload() {
 
     echo -e "${ORANGE}Upload complete!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      push_msg "Uploaded to Gofile%0A1. $BUILD_NAME | <b>SHA256: </b><code>$SHA256_CHECK</code>%0A<b>Download:</b> $URL_ID"
+      push_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$SHA256_CHECK</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
     else
       echo -e "${ORANGE}Download: $URL_ID${RST}"
     fi
@@ -252,14 +256,14 @@ pixeldrain_upload() {
 
   response=$(curl -T "$FILE_PATH" -u :$PIXELDRAIN_API_TOKEN https://pixeldrain.com/api/file/)
 
-  UPLOAD_ID=$(echo "$response" | grep -Po '(?<="id":")[^\"]*')
-  if [ -n "$UPLOAD_ID" ]; then
-    PD_URL="https://pixeldrain.com/u/$UPLOAD_ID"
+  PD_UPLOAD_ID=$(echo "$response" | grep -Po '(?<="id":")[^\"]*')
+  if [ -n "$PD_UPLOAD_ID" ]; then
+    URL_ID="https://pixeldrain.com/u/$PD_UPLOAD_ID"
     echo -e "${LIGHT_GREEN}Upload complete!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      push_msg "Uploaded to PixelDrain%0A1. $BUILD_NAME | <b>SHA256: </b><code>$SHA256_CHECK</code>%0A<b>Download:</b> $PD_URL"
+      push_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$SHA256_CHECK</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
     else
-      echo -e "${LIGHT_GREEN}Download: $PD_URL${RST}"
+      echo -e "${LIGHT_GREEN}Download: $URL_ID${RST}"
     fi
   else
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
@@ -290,7 +294,7 @@ rclone_upload() {
   rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
 
   echo -e "${GRN}Upload complete!${RST}"
-  [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload completed%0A1. $BUILD_NAME | <b>SHA256: </b><code>$SHA256_CHECK</code>"
+  [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$SHA256_CHECK</code>"
 
 }
 
