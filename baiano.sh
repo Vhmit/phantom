@@ -180,7 +180,7 @@ build_status() {
 
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       BUILD_NAME=$(basename "$BUILD_PACKAGE")
-      MD5_CHECK=$(md5sum "$BUILD_PACKAGE" | awk '{print $1}')
+      SHA256_CHECK=$(sha256sum "$BUILD_PACKAGE" | awk '{print $1}')
       push_msg "Build completed successfully%0ATotal time elapsed: <b>$build_time</b>"
     fi
     uploading
@@ -227,7 +227,7 @@ gofile_upload() {
 
     echo -e "${ORANGE}Upload complete!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      push_msg "Uploaded to Gofile%0A1. $BUILD_NAME | <b>MD5: </b><code>$MD5_CHECK</code>%0A<b>Download:</b> $URL_ID"
+      push_msg "Uploaded to Gofile%0A1. $BUILD_NAME | <b>SHA256: </b><code>$SHA256_CHECK</code>%0A<b>Download:</b> $URL_ID"
     else
       echo -e "${ORANGE}Download: $URL_ID${RST}"
     fi
@@ -254,7 +254,7 @@ pixeldrain_upload() {
     PD_URL="https://pixeldrain.com/u/$UPLOAD_ID"
     echo -e "${LIGHT_GREEN}Upload complete!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      push_msg "Uploaded to PixelDrain%0A1. $BUILD_NAME%0A<b>Download:</b> $PD_URL"
+      push_msg "Uploaded to PixelDrain%0A1. $BUILD_NAME | <b>SHA256: </b><code>$SHA256_CHECK</code>%0A<b>Download:</b> $PD_URL"
     else
       echo -e "${LIGHT_GREEN}Download: $PD_URL${RST}"
     fi
@@ -287,7 +287,7 @@ rclone_upload() {
   rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
 
   echo -e "${GRN}Upload complete!${RST}"
-  [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload completed%0A1. $BUILD_NAME"
+  [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload completed%0A1. $BUILD_NAME | <b>SHA256: </b><code>$SHA256_CHECK</code>"
 
 }
 
