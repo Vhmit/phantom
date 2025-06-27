@@ -24,6 +24,11 @@ baiano_not_dream() {
 
 trap baiano_not_dream INT
 
+if [ -f "$ROM_DIR/vars.txt" ]; then
+  FLAG_CI_BUILD=y
+  export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
+fi
+
 # Device
 DEVICE="$1"
 BUILD_TYPE="$2"
@@ -32,10 +37,9 @@ BUILD_TYPE="$2"
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
 # Vars
-if [ -f "$ROM_DIR/vars.txt" ]; then
-  FLAG_CI_BUILD=y
-  export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
-fi
+PROJECT_NAME="PixelOS"
+PROJECT_VERSION="15"
+OTA_PKG="$PROJECT_NAME*$DEVICE-$PROJECT_VERSION.0-*.zip"
 
 # Arg parsing
 for arg in "$@"; do
@@ -80,7 +84,7 @@ else
 fi
 
 # Send Telegram message
-push_msg() {
+send_msg() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
   local MSG="$1"
@@ -89,6 +93,17 @@ push_msg() {
     -d "chat_id=$CHAT_ID&parse_mode=html&text=$MSG" \
     -d "reply_to_message_id=$TOPIC_ID" \
     -d disable_web_page_preview=true
+}
+
+send_file() {
+  [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
+
+  local FILE="$1"
+
+  curl "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+    -F chat_id="$CHAT_ID" \
+    -F reply_to_message_id="$TOPIC_ID" \
+    -F document=@"$FILE"
 }
 
 # Check device vars
@@ -114,24 +129,22 @@ check_vars() {
 lunching() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
-  [ "${FLAG_CI_BUILD}" = 'y' ] && local start_time=$(date +%s)
-  rm -f lunch_log.txt build_log.txt
+  [ "${FLAG_CI_BUILD}" = 'y' ] && local START_TIME=$(date +%s)
+  rm -f lunch_log.txt
 
   source build/envsetup.sh
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
 
   if grep -q "dumpvars failed with" lunch_log.txt; then
-    echo -e "${BLD_RED}ERROR: Lunch failed!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      push_msg "Lunch failed"
-      curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"lunch_log.txt" \
-        "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
+      send_msg "<b>❌ Lunch failed!</b>"
+      send_file "lunch_log.txt"
     fi
+    echo -e "${BLD_RED}ERROR: Lunch failed!${RST}"
   else
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
       BUILD_NUMBER=$(grep '^BUILD_ID=' lunch_log.txt | cut -d'=' -f2)
-      CUSTOM_ANDROID_VERSION=$(grep '^PLATFORM_VERSION=' lunch_log.txt | cut -d'=' -f2)
-      push_msg "<b>🛠 CI | PixelOS $CUSTOM_ANDROID_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
+      send_msg "<b>🛠 CI | $PROJECT_NAME $PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
     fi
     building
   fi
@@ -139,12 +152,12 @@ lunching() {
 
 # Build time
 building() {
-  [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean &>build_log.txt
-  mka bacon -j "$JOBS" &>build_log.txt
+  [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean
+  mka bacon -j "$JOBS"
 
   if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-    local end_time=$(date +%s)
-    build_status $start_time $end_time
+    local END_TIME=$(date +%s)
+    build_status $START_TIME $END_TIME
   else
     build_status
   fi
@@ -152,20 +165,20 @@ building() {
 
 # Timer
 count_build_time() {
-  local start_time=$1
-  local end_time=$2
+  local START_TIME=$1
+  local END_TIME=$2
 
-  local duration=$((end_time - start_time))
-  local seconds=$((duration % 60))
-  local minutes=$((duration / 60 % 60))
-  local hours=$((duration / 3600))
+  local DURATION=$((END_TIME - START_TIME))
+  local SECONDS=$((DURATION % 60))
+  local MINUTES=$((DURATION / 60 % 60))
+  local HOURS=$((DURATION / 3600))
 
-  local time_message=""
-  [ $hours -gt 0 ] && time_message="${hours} h "
-  [ $minutes -gt 0 ] && time_message="${time_message}${minutes} min "
-  [ $seconds -gt 0 ] && time_message="${time_message}${seconds} s "
+  local TIME_MSG=""
+  [ $HOURS -gt 0 ] && TIME_MSG="${HOURS} h "
+  [ $MINUTES -gt 0 ] && TIME_MSG="${TIME_MSG}${MINUTES} min "
+  [ $SECONDS -gt 0 ] && TIME_MSG="${TIME_MSG}${SECONDS} s "
 
-  echo "$time_message"
+  echo "$TIME_MSG"
 }
 
 # Build status
@@ -173,18 +186,18 @@ build_status() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
   if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-    local start_time=$1
-    local end_time=$2
-    build_time=$(count_build_time $start_time $end_time)
+    local START_TIME=$1
+    local END_TIME=$2
+    BUILD_TIME=$(count_build_time $START_TIME $END_TIME)
   fi
 
-  if grep -q "build bacon" build_log.txt; then
-    BUILD_PACKAGE=$(grep '^Package Complete:' build_log.txt | cut -d':' -f2)
+  BUILD_PKG="$(find "$OUT_DIR" -name "$OTA_PKG" -print -quit)"
 
+  if [ -n "$BUILD_PKG" ]; then
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      BUILD_NAME=$(basename "$BUILD_PACKAGE")
-      SHA256_CHECK=$(sha256sum "$OUT_DIR/$BUILD_NAME" | awk '{print $1}')
-      push_msg "<b>✅ Build completed</b>%0A⏱ <b>$build_time</b>"
+      BUILD_NAME=$(basename "$BUILD_PKG")
+      OTA_PKG_SHA256=$(sha256sum "$BUILD_PKG" | awk '{print $1}')
+      send_msg "<b>✅ Build completed</b>%0A⏱ <b>$BUILD_TIME</b>"
     fi
     uploading
   else
@@ -198,20 +211,20 @@ uploading() {
     gdrive)
       echo -e "${GRN}Starting upload to Google Drive...${RST}"
       UPLOAD_HOST_NAME="Google Drive"
-      rclone_upload "$BUILD_PACKAGE" "gdrive"
+      rclone_upload "$BUILD_PKG" "gdrive"
       ;;
     gofile)
       echo -e "${ORANGE}Starting upload to Gofile...${RST}"
       UPLOAD_HOST_NAME="Gofile"
-      gofile_upload "$BUILD_PACKAGE"
+      gofile_upload "$BUILD_PKG"
       ;;
     pixeldrain)
       echo -e "${LIGHT_GREEN}Starting upload to PixelDrain...${RST}"
       UPLOAD_HOST_NAME="Pixel Drain"
-      pixeldrain_upload "$BUILD_PACKAGE"
+      pixeldrain_upload "$BUILD_PKG"
       ;;
     *)
-      [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "<b>✅ Build completed</b>%0A⏱ <b>$build_time</b>"
+      [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "<b>✅ Build completed</b>%0A⏱ <b>$BUILD_TIME</b>"
       echo -e "${BLD_BLU}WARNING: No upload host defined!${RST}"
       ;;
   esac
@@ -222,25 +235,25 @@ gofile_upload() {
   local FILE_PATH="$1"
   local FILE_NAME="${FILE_PATH##*/}"
 
-  local response
-  response=$(curl -# -F "name=$FILE_NAME" -F "file=@$FILE_PATH" "https://store1.gofile.io/contents/uploadfile")
+  local RESPONSE
+  RESPONSE=$(curl -# -F "name=$FILE_NAME" -F "file=@$FILE_PATH" "https://store1.gofile.io/contents/uploadfile")
 
   local UPLOAD_STATUS
-  UPLOAD_STATUS=$(echo "$response" | grep -Po '(?<="status":")[^"]*')
+  UPLOAD_STATUS=$(echo "$RESPONSE" | grep -Po '(?<="status":")[^"]*')
 
   if [ "$UPLOAD_STATUS" = 'ok' ]; then
     local URL_ID
-    URL_ID=$(echo "$response" | grep -Po '(?<="downloadPage":")[^"]*')
+    URL_ID=$(echo "$RESPONSE" | grep -Po '(?<="downloadPage":")[^"]*')
 
     echo -e "${ORANGE}Upload complete!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      push_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$SHA256_CHECK</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+      send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
     else
       echo -e "${ORANGE}Download: $URL_ID${RST}"
     fi
   else
+    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
-    [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
   fi
 }
 
@@ -250,24 +263,25 @@ pixeldrain_upload() {
   local FILE_NAME="${FILE_PATH##*/}"
 
   if [ -z "$PIXELDRAIN_API_TOKEN" ]; then
+    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "<b>❌ Upload failed: <i>PIXELDRAIN_API_TOKEN</i> not found!</b>"
     echo -e "${BLD_RED}ERROR: PIXELDRAIN_API_TOKEN not found!${RST}"
     return 1
   fi
 
-  response=$(curl -T "$FILE_PATH" -u :$PIXELDRAIN_API_TOKEN https://pixeldrain.com/api/file/)
+  RESPONSE=$(curl -T "$FILE_PATH" -u :$PIXELDRAIN_API_TOKEN https://pixeldrain.com/api/file/)
 
-  PD_UPLOAD_ID=$(echo "$response" | grep -Po '(?<="id":")[^\"]*')
+  PD_UPLOAD_ID=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^\"]*')
   if [ -n "$PD_UPLOAD_ID" ]; then
     URL_ID="https://pixeldrain.com/u/$PD_UPLOAD_ID"
-    echo -e "${LIGHT_GREEN}Upload complete!${RST}"
     if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      push_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$SHA256_CHECK</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+      send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+      echo -e "${LIGHT_GREEN}Upload complete!${RST}"
     else
       echo -e "${LIGHT_GREEN}Download: $URL_ID${RST}"
     fi
   else
+    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
-    [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "Upload failed!"
     return 1
   fi
 }
@@ -280,9 +294,11 @@ rclone_upload() {
   RCLONE_CONF="$HOME/.config/rclone/rclone.conf"
 
   if [[ -z "$RCLONE_BIN" ]]; then
+    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed: <i>rclone</i> is not installed!"
     echo "${BLD_RED}ERROR: rclone is not installed!${RST}"
     exit 1
   elif [[ ! -f "$RCLONE_CONF" ]]; then
+    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed: <i>rclone.config</i> not found!!"
     echo "${BLD_RED}ERROR: rclone.config not found!${RST}"
     exit 1
   fi
@@ -293,9 +309,8 @@ rclone_upload() {
 
   rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
 
+  [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$OTA_PKG_SHA256</code>"
   echo -e "${GRN}Upload complete!${RST}"
-  [ "${FLAG_CI_BUILD}" = 'y' ] && push_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$SHA256_CHECK</code>"
-
 }
 
 # Build log
@@ -304,15 +319,14 @@ push_log() {
 
   local LOG="$ROM_DIR/out/error.log"
 
-  echo -e "${BLD_RED}ERROR: Build failed!${RST}"
   if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-    push_msg "Build failed"
-    curl -F chat_id="$CHAT_ID" -F reply_to_message_id="$TOPIC_ID" -F document=@"$LOG" \
-      "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
+    send_msg "❌ Build failed"
+    send_file "$LOG"
   else
+    echo -e "${BLD_RED}ERROR: Build failed!${RST}"
     PAST_LOG="$(cat $LOG)"
-    response=$(curl -s -d "$PAST_LOG" https://paste.crdroid.net/documents)
-    KEY=$(echo "$response" | grep -Po '(?<="key":")[^"]*')
+    RESPONSE=$(curl -s -d "$PAST_LOG" https://paste.crdroid.net/documents)
+    KEY=$(echo "$RESPONSE" | grep -Po '(?<="key":")[^"]*')
     echo -e "${BLD_RED}Log info: https://paste.crdroid.net/$KEY${RST}"
   fi
 }
