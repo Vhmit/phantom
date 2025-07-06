@@ -15,6 +15,13 @@ BLD_CYA=$RST$BLD$(tput setaf 6)
 
 ROM_DIR="$(pwd)"
 
+if [[ -z "$ROM_DIR/vars.txt" ]]; then
+  echo -e "${BLD_RED}ERROR: The variables file [vars.txt] was not found!${RST}"
+  exit 1
+fi
+
+export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
+
 # Guard
 baiano_not_dream() {
   echo -e "${BLD_RED}Build aborted!${RST}"
@@ -23,11 +30,6 @@ baiano_not_dream() {
 }
 
 trap baiano_not_dream INT
-
-if [ -f "$ROM_DIR/vars.txt" ]; then
-  FLAG_CI_BUILD=y
-  export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
-fi
 
 # Device
 DEVICE="$1"
@@ -83,7 +85,7 @@ else
   JOBS=16
 fi
 
-# Send Telegram message
+# Send TG msg
 send_msg() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
@@ -95,6 +97,7 @@ send_msg() {
     -d disable_web_page_preview=true
 }
 
+# Send TG file
 send_file() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
@@ -108,6 +111,7 @@ send_file() {
 
 # Check device vars
 check_vars() {
+  # Device and Build Type
   if [ -z "$DEVICE" ] || [ -z "$BUILD_TYPE" ]; then
     echo -e "${BLD_RED}ERROR: DEVICE and BUILD_TYPE must be defined!${RST}"
     echo -e "${BLD_RED}Usage: $0 <DEVICE> <BUILD_TYPE>${RST}"
@@ -121,6 +125,12 @@ check_vars() {
     exit 1
   fi
 
+  # Bot token and Chat ID
+  if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+    echo -e "${BLD_RED}ERROR: BOT_TOKEN and CHAT_ID must be defined!${RST}"
+    exit 1
+  fi
+
   lunching
 
 }
@@ -129,23 +139,18 @@ check_vars() {
 lunching() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
-  [ "${FLAG_CI_BUILD}" = 'y' ] && local START_TIME=$(date +%s)
+  local START_TIME=$(date +%s)
   rm -f lunch_log.txt
 
   source build/envsetup.sh
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
 
   if grep -q "dumpvars failed with" lunch_log.txt; then
-    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      send_msg "<b>❌ Lunch failed!</b>"
-      send_file "lunch_log.txt"
-    fi
-    echo -e "${BLD_RED}ERROR: Lunch failed!${RST}"
+    send_msg "<b>❌ Lunch failed!</b>"
+    send_file "lunch_log.txt"
   else
-    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      BUILD_NUMBER=$(grep '^BUILD_ID=' lunch_log.txt | cut -d'=' -f2)
-      send_msg "<b>🛠 CI | $PROJECT_NAME $PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
-    fi
+    BUILD_NUMBER=$(grep '^BUILD_ID=' lunch_log.txt | cut -d'=' -f2)
+    send_msg "<b>🛠 CI | $PROJECT_NAME $PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
     building
   fi
 }
@@ -155,12 +160,8 @@ building() {
   [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean
   mka bacon -j "$JOBS"
 
-  if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-    local END_TIME=$(date +%s)
-    build_status $START_TIME $END_TIME
-  else
-    build_status
-  fi
+  local END_TIME=$(date +%s)
+  build_status $START_TIME $END_TIMEi
 }
 
 # Timer
@@ -185,20 +186,16 @@ count_build_time() {
 build_status() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
-  if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-    local START_TIME=$1
-    local END_TIME=$2
-    BUILD_TIME=$(count_build_time $START_TIME $END_TIME)
-  fi
+  local START_TIME=$1
+  local END_TIME=$2
+  BUILD_TIME=$(count_build_time $START_TIME $END_TIME)
 
   BUILD_PKG="$(find "$OUT_DIR" -name "$OTA_PKG" -print -quit)"
 
   if [ -n "$BUILD_PKG" ]; then
-    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      BUILD_NAME=$(basename "$BUILD_PKG")
-      OTA_PKG_SHA256=$(sha256sum "$BUILD_PKG" | awk '{print $1}')
-      send_msg "<b>✅ Build completed</b>%0A⏱ <b>$BUILD_TIME</b>"
-    fi
+    BUILD_NAME=$(basename "$BUILD_PKG")
+    OTA_PKG_SHA256=$(sha256sum "$BUILD_PKG" | awk '{print $1}')
+    send_msg "<b>✅ Build completed</b>%0A⏱ <b>$BUILD_TIME</b>"
     uploading
   else
     push_log
@@ -224,7 +221,6 @@ uploading() {
       pixeldrain_upload "$BUILD_PKG"
       ;;
     *)
-      [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "<b>✅ Build completed</b>%0A⏱ <b>$BUILD_TIME</b>"
       echo -e "${BLD_BLU}WARNING: No upload host defined!${RST}"
       ;;
   esac
@@ -246,13 +242,9 @@ gofile_upload() {
     URL_ID=$(echo "$RESPONSE" | grep -Po '(?<="downloadPage":")[^"]*')
 
     echo -e "${ORANGE}Upload complete!${RST}"
-    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
-    else
-      echo -e "${ORANGE}Download: $URL_ID${RST}"
-    fi
+    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
   else
-    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed!"
+    send_msg "❌ Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
   fi
 }
@@ -263,7 +255,7 @@ pixeldrain_upload() {
   local FILE_NAME="${FILE_PATH##*/}"
 
   if [ -z "$PIXELDRAIN_API_TOKEN" ]; then
-    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "<b>❌ Upload failed: <i>PIXELDRAIN_API_TOKEN</i> not found!</b>"
+    send_msg "<b>❌ Upload failed: <i>PIXELDRAIN_API_TOKEN</i> not found!</b>"
     echo -e "${BLD_RED}ERROR: PIXELDRAIN_API_TOKEN not found!${RST}"
     return 1
   fi
@@ -273,14 +265,10 @@ pixeldrain_upload() {
   PD_UPLOAD_ID=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^\"]*')
   if [ -n "$PD_UPLOAD_ID" ]; then
     URL_ID="https://pixeldrain.com/u/$PD_UPLOAD_ID"
-    if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-      send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
-      echo -e "${LIGHT_GREEN}Upload complete!${RST}"
-    else
-      echo -e "${LIGHT_GREEN}Download: $URL_ID${RST}"
-    fi
+    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+    echo -e "${LIGHT_GREEN}Upload complete!${RST}"
   else
-    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed!"
+    send_msg "❌ Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
     return 1
   fi
@@ -294,11 +282,11 @@ rclone_upload() {
   RCLONE_CONF="$HOME/.config/rclone/rclone.conf"
 
   if [[ -z "$RCLONE_BIN" ]]; then
-    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed: <i>rclone</i> is not installed!"
+    send_msg "❌ Upload failed: <i>rclone</i> is not installed!"
     echo "${BLD_RED}ERROR: rclone is not installed!${RST}"
     exit 1
   elif [[ ! -f "$RCLONE_CONF" ]]; then
-    [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "❌ Upload failed: <i>rclone.config</i> not found!!"
+    send_msg "❌ Upload failed: <i>rclone.config</i> not found!!"
     echo "${BLD_RED}ERROR: rclone.config not found!${RST}"
     exit 1
   fi
@@ -309,7 +297,7 @@ rclone_upload() {
 
   rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
 
-  [ "${FLAG_CI_BUILD}" = 'y' ] && send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$OTA_PKG_SHA256</code>"
+  send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$OTA_PKG_SHA256</code>"
   echo -e "${GRN}Upload complete!${RST}"
 }
 
@@ -319,16 +307,8 @@ push_log() {
 
   local LOG="$ROM_DIR/out/error.log"
 
-  if [ "${FLAG_CI_BUILD}" = 'y' ]; then
-    send_msg "❌ Build failed"
-    send_file "$LOG"
-  else
-    echo -e "${BLD_RED}ERROR: Build failed!${RST}"
-    PAST_LOG="$(cat $LOG)"
-    RESPONSE=$(curl -s -d "$PAST_LOG" https://paste.crdroid.net/documents)
-    KEY=$(echo "$RESPONSE" | grep -Po '(?<="key":")[^"]*')
-    echo -e "${BLD_RED}Log info: https://paste.crdroid.net/$KEY${RST}"
-  fi
+  send_msg "❌ Build failed"
+  send_file "$LOG"
 }
 
 check_vars
