@@ -38,21 +38,13 @@ BUILD_TYPE="$2"
 # Out
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
-# Vars
-PROJECT_NAME="PixelOS"
-PROJECT_VERSION="15"
-OTA_PKG="$PROJECT_NAME*$DEVICE-$PROJECT_VERSION.0-*.zip"
-
 # Arg parsing
 for arg in "$@"; do
   case "$arg" in
     --makeclean)
-      echo -e "${BLD_BLU}Cleaning all compiled files from previous builds...${RST}"
-      rm -rf "$ROM_DIR/out"
-      echo -e "${BLD_BLU}Done!${RST}"
+      FLAG_CLEAN_BUILD=y
       ;;
     --installclean)
-      echo -e "${BLD_BLU}Cleaning compiled files from previous builds...${RST}"
       FLAG_INSTALLCLEAN_BUILD=y
       ;;
     --full-jobs)
@@ -74,6 +66,27 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# Check if mandatory vars have been defined
+# Device and build type
+if [ -z "$DEVICE" ] || [ -z "$BUILD_TYPE" ]; then
+  echo -e "${BLD_RED}ERROR: DEVICE and BUILD_TYPE must be defined!${RST}"
+  echo -e "${BLD_RED}Usage: $0 <DEVICE> <BUILD_TYPE>${RST}"
+  echo -e "${BLD_RED}Example: $0 alioth userdebug${RST}"
+  exit 1
+fi
+
+if [[ "$BUILD_TYPE" != "eng" && "$BUILD_TYPE" != "userdebug" && "$BUILD_TYPE" != "user" ]]; then
+  echo -e "${BLD_RED}ERROR: Invalid BUILD_TYPE: '$BUILD_TYPE'${RST}"
+  echo -e "${BLD_RED}Choose: eng, userdebug or user${RST}"
+  exit 1
+fi
+
+# Bot token and chat ID
+if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+  echo -e "${BLD_RED}ERROR: BOT_TOKEN and CHAT_ID must be defined!${RST}"
+  exit 1
+fi
 
 # Jobs
 if [ "${FLAG_FULL_JOBS}" = 'y' ]; then
@@ -97,6 +110,36 @@ send_msg() {
     -d disable_web_page_preview=true
 }
 
+clean_house() {
+  rm -f lunch_log.txt
+
+  if [ "${FLAG_CLEAN_BUILD}" = 'y' ]; then
+    echo -e "${BLD_BLU}Cleaning all compiled files from previous builds...${RST}"
+
+    source build/envsetup.sh
+    breakfast "$DEVICE" "$BUILD_TYPE"
+    make clean
+  elif [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
+    echo -e "${BLD_BLU}Cleaning compiled files from previous builds...${RST}"
+    rm -f $OUT_DIR/PixelOS_$DEVICE-*
+
+    source build/envsetup.sh
+    breakfast "$DEVICE" "$BUILD_TYPE"
+    make installclean
+  fi
+}
+
+check_sha256() {
+  local FILE="$1"
+
+  if [[ ! -f "$FILE" ]]; then
+    echo "ERROR: '$FILE' not found!" >&2
+    return 1
+  fi
+
+  sha256sum "$FILE" | awk '{print $1}'
+}
+
 # Send TG file
 send_file() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
@@ -109,59 +152,34 @@ send_file() {
     -F document=@"$FILE"
 }
 
-# Check device vars
-check_vars() {
-  # Device and Build Type
-  if [ -z "$DEVICE" ] || [ -z "$BUILD_TYPE" ]; then
-    echo -e "${BLD_RED}ERROR: DEVICE and BUILD_TYPE must be defined!${RST}"
-    echo -e "${BLD_RED}Usage: $0 <DEVICE> <BUILD_TYPE>${RST}"
-    echo -e "${BLD_RED}Example: $0 alioth userdebug${RST}"
-    exit 1
-  fi
-
-  if [[ "$BUILD_TYPE" != "eng" && "$BUILD_TYPE" != "userdebug" && "$BUILD_TYPE" != "user" ]]; then
-    echo -e "${BLD_RED}ERROR: Invalid BUILD_TYPE: '$BUILD_TYPE'${RST}"
-    echo -e "${BLD_RED}Choose: eng, userdebug or user${RST}"
-    exit 1
-  fi
-
-  # Bot token and Chat ID
-  if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
-    echo -e "${BLD_RED}ERROR: BOT_TOKEN and CHAT_ID must be defined!${RST}"
-    exit 1
-  fi
-
-  lunching
-
-}
-
 # Lunch time
 lunching() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
   local START_TIME=$(date +%s)
-  rm -f lunch_log.txt
 
   source build/envsetup.sh
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
 
   if grep -q "dumpvars failed with" lunch_log.txt; then
     send_msg "<b>❌ Lunch failed!</b>"
-    send_file "lunch_log.txt"
+    send_file lunch_log.txt
   else
-    BUILD_NUMBER=$(grep '^BUILD_ID=' lunch_log.txt | cut -d'=' -f2)
-    send_msg "<b>🛠 CI | $PROJECT_NAME $PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
+    # Vars
+    BUILD_NUMBER="$(get_build_var BUILD_ID)"
+    PROJECT_VERSION="$(get_build_var PLATFORM_VERSION)"
+
+    send_msg "<b>🛠 CI | PixelOS $PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
     building
   fi
 }
 
 # Build time
 building() {
-  [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ] && make installclean
   mka bacon -j "$JOBS"
 
   local END_TIME=$(date +%s)
-  build_status $START_TIME $END_TIMEi
+  build_status $START_TIME $END_TIME
 }
 
 # Timer
@@ -190,11 +208,12 @@ build_status() {
   local END_TIME=$2
   BUILD_TIME=$(count_build_time $START_TIME $END_TIME)
 
-  BUILD_PKG="$(find "$OUT_DIR" -name "$OTA_PKG" -print -quit)"
+  BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-$PROJECT_VERSION.0-*.zip" -print -quit)"
 
-  if [ -n "$BUILD_PKG" ]; then
-    BUILD_NAME=$(basename "$BUILD_PKG")
-    OTA_PKG_SHA256=$(sha256sum "$BUILD_PKG" | awk '{print $1}')
+  if [ -n "$BUILD_PACKAGE" ]; then
+    BUILD_NAME=$(basename "$BUILD_PACKAGE")
+    BUILD_PACKAGE_SHA256=$(check_sha256 "$BUILD_PACKAGE")
+
     send_msg "<b>✅ Build completed</b>%0A⏱ <b>$BUILD_TIME</b>"
     uploading
   else
@@ -208,17 +227,17 @@ uploading() {
     gdrive)
       echo -e "${GRN}Starting upload to Google Drive...${RST}"
       UPLOAD_HOST_NAME="Google Drive"
-      rclone_upload "$BUILD_PKG" "gdrive"
+      rclone_upload "$BUILD_PACKAGE" "gdrive"
       ;;
     gofile)
       echo -e "${ORANGE}Starting upload to Gofile...${RST}"
       UPLOAD_HOST_NAME="Gofile"
-      gofile_upload "$BUILD_PKG"
+      gofile_upload "$BUILD_PACKAGE"
       ;;
     pixeldrain)
       echo -e "${LIGHT_GREEN}Starting upload to PixelDrain...${RST}"
       UPLOAD_HOST_NAME="Pixel Drain"
-      pixeldrain_upload "$BUILD_PKG"
+      pixeldrain_upload "$BUILD_PACKAGE"
       ;;
     *)
       echo -e "${BLD_BLU}WARNING: No upload host defined!${RST}"
@@ -242,7 +261,7 @@ gofile_upload() {
     URL_ID=$(echo "$RESPONSE" | grep -Po '(?<="downloadPage":")[^"]*')
 
     echo -e "${ORANGE}Upload complete!${RST}"
-    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
   else
     send_msg "❌ Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
@@ -265,7 +284,7 @@ pixeldrain_upload() {
   PD_UPLOAD_ID=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^\"]*')
   if [ -n "$PD_UPLOAD_ID" ]; then
     URL_ID="https://pixeldrain.com/u/$PD_UPLOAD_ID"
-    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$OTA_PKG_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
     echo -e "${LIGHT_GREEN}Upload complete!${RST}"
   else
     send_msg "❌ Upload failed!"
@@ -297,7 +316,7 @@ rclone_upload() {
 
   rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
 
-  send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$OTA_PKG_SHA256</code>"
+  send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$BUILD_PACKAGE_SHA256</code>"
   echo -e "${GRN}Upload complete!${RST}"
 }
 
@@ -311,4 +330,5 @@ push_log() {
   send_file "$LOG"
 }
 
-check_vars
+clean_house
+lunching
