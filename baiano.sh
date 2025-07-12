@@ -33,38 +33,32 @@ trap baiano_not_dream INT
 
 # Device
 DEVICE="$1"
-BUILD_TYPE="$2"
 
 # Out
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
-# Arg parsing
-for arg in "$@"; do
-  case "$arg" in
-    --makeclean)
-      FLAG_CLEAN_BUILD=y
-      ;;
-    --installclean)
-      FLAG_INSTALLCLEAN_BUILD=y
-      ;;
-    --full-jobs)
-      ALL_PROCS=$(nproc)
-      FLAG_FULL_JOBS=y
-      ;;
-    --j*)
-      CUSTOM_JOBS="${arg#--j}"
-      FLAG_CUSTOM_JOBS=y
-      ;;
-    --upload-gdrive)
-      UPLOAD_HOST="gdrive"
-      ;;
-    --upload-gofile)
-      UPLOAD_HOST="gofile"
-      ;;
-    --upload-pixeldrain)
-      UPLOAD_HOST="pixeldrain"
-      ;;
+# Setup getopt
+LONG_OPTS="build-type:,clean,full-jobs,installclean,jobs:,upload:"
+GETOPT_CMD=$(getopt -o cifj:t:u: --long "$LONG_OPTS" \
+  -n $(basename $0) -- "$@") ||
+  {
+    echo -e "${CLR_BLD_RED}\nError: Getopt failed. Extra args\n${CLR_RST}"
+    exit 1
+  }
+
+eval set -- "$GETOPT_CMD"
+
+while true; do
+  case "$1" in
+    -c|--clean|c|clean) FLAG_CLEAN_BUILD=y;;
+    -f|--full-jobs|f|full-jobs) JOBS=$(nproc);;
+    -i|--installclean|i|installclean) FLAG_INSTALLCLEAN_BUILD=y;;
+    -j|--jobs|j|jobs) JOBS="$2"; shift;;
+    -t|--build-type|t|build-type) BUILD_TYPE="$2"; shift;;
+    -u|--upload|u|upload) UPLOAD_HOST="$2"; shift;;
+    --) shift; break;;
   esac
+  shift
 done
 
 # Check if mandatory vars have been defined
@@ -89,11 +83,7 @@ if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
 fi
 
 # Jobs
-if [ "${FLAG_FULL_JOBS}" = 'y' ]; then
-  JOBS="$ALL_PROCS"
-elif [ "${FLAG_CUSTOM_JOBS}" = 'y' ]; then
-  JOBS="$CUSTOM_JOBS"
-else
+if [ -z "$JOBS" ]; then
   echo -e "${BLD_BLU}WARNING: No number of jobs defined! Using default value: 16.${RST}"
   JOBS=16
 fi
