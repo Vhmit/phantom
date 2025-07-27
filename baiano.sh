@@ -38,8 +38,8 @@ DEVICE="$1"
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
 # Setup getopt
-LONG_OPTS="build-type:,clean,full-jobs,installclean,jobs:,upload:"
-GETOPT_CMD=$(getopt -o cifj:t:u: --long "$LONG_OPTS" \
+LONG_OPTS="build-type:,clean,installclean,jobs:,upload:"
+GETOPT_CMD=$(getopt -o cij:t:u: --long "$LONG_OPTS" \
   -n $(basename $0) -- "$@") ||
   {
     echo -e "${CLR_BLD_RED}\nError: Getopt failed. Extra args\n${CLR_RST}"
@@ -51,7 +51,6 @@ eval set -- "$GETOPT_CMD"
 while true; do
   case "$1" in
     -c|--clean|c|clean) FLAG_CLEAN_BUILD=y;;
-    -f|--full-jobs|f|full-jobs) JOBS=$(nproc);;
     -i|--installclean|i|installclean) FLAG_INSTALLCLEAN_BUILD=y;;
     -j|--jobs|j|jobs) JOBS="$2"; shift;;
     -t|--build-type|t|build-type) BUILD_TYPE="$2"; shift;;
@@ -84,8 +83,7 @@ fi
 
 # Jobs
 if [ -z "$JOBS" ]; then
-  echo -e "${BLD_BLU}WARNING: No number of jobs defined! Using default value: 16.${RST}"
-  JOBS=16
+  JOBS=$(nproc)
 fi
 
 # Send TG msg
