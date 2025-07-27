@@ -37,12 +37,27 @@ DEVICE="$1"
 # Out
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
+# Output usage help
+function showHelpAndExit {
+  echo -e "${CLR_BLD_BLU}Usage: $0 <device> [options]${CLR_RST}"
+  echo -e ""
+  echo -e "${CLR_BLD_BLU}Options:${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -h, --help            Display this help message${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -t, --build-type      Specify build type${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -c, --clean           Wipe the tree before building${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -i, --installclean    Dirty build - Use 'installclean'${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -j, --jobs            Specify jobs/threads to use${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -u, --upload          Specify host to upload builds packages${CLR_RST}"
+  exit 1
+}
+
 # Setup getopt
-LONG_OPTS="build-type:,clean,installclean,jobs:,upload:"
-GETOPT_CMD=$(getopt -o cij:t:u: --long "$LONG_OPTS" \
+LONG_OPTS="help,build-type:,clean,installclean,jobs:,upload:"
+GETOPT_CMD=$(getopt -o hcij:t:u: --long "$LONG_OPTS" \
   -n $(basename $0) -- "$@") ||
   {
     echo -e "${CLR_BLD_RED}\nError: Getopt failed. Extra args\n${CLR_RST}"
+    showHelpAndExit
     exit 1
   }
 
@@ -50,6 +65,7 @@ eval set -- "$GETOPT_CMD"
 
 while true; do
   case "$1" in
+    -h|--help|h|help) showHelpAndExit;;
     -c|--clean|c|clean) FLAG_CLEAN_BUILD=y;;
     -i|--installclean|i|installclean) FLAG_INSTALLCLEAN_BUILD=y;;
     -j|--jobs|j|jobs) JOBS="$2"; shift;;
