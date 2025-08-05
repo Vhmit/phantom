@@ -45,16 +45,16 @@ trap baiano_not_dream INT
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
 
 # Output usage help
-function showHelpAndExit {
+showHelpAndExit() {
   echo -e "${CLR_BLD_BLU}Usage: $0 <device> [options]${CLR_RST}"
   echo -e ""
   echo -e "${CLR_BLD_BLU}Options:${CLR_RST}"
-  echo -e "${CLR_BLD_BLU}  -h, --help            Display this help message${CLR_RST}"
-  echo -e "${CLR_BLD_BLU}  -t, --build-type      Specify build type${CLR_RST}"
-  echo -e "${CLR_BLD_BLU}  -c, --clean           Wipe the tree before building${CLR_RST}"
-  echo -e "${CLR_BLD_BLU}  -i, --installclean    Dirty build - Use 'installclean'${CLR_RST}"
-  echo -e "${CLR_BLD_BLU}  -j, --jobs            Specify jobs/threads to use${CLR_RST}"
-  echo -e "${CLR_BLD_BLU}  -u, --upload          Specify host to upload builds packages${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -h, --help                Display this help message${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -t, --build-type TYPE     Type of build: eng, user, userdebug (default: user)${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -c, --clean               Wipe the tree before building${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -i, --installclean        Dirty build - Use 'installclean'${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -j, --jobs N              Number of parallel jobs (default: all threads)${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -u, --upload HOST         Upload host: gdrive, gofile, pixeldrain${CLR_RST}"
   exit 1
 }
 
