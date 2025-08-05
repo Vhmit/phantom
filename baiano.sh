@@ -15,6 +15,16 @@ BLD_CYA=$RST$BLD$(tput setaf 6)
 
 ROM_DIR="$(pwd)"
 
+# Device
+DEVICE="$1"
+
+# Defaults
+BUILD_TYPE="user"
+JOBS="$(nproc)"
+UPLOAD_FOLDER=android
+UPLOAD_HOST="gofile"
+
+# User vars
 if [[ -z "$ROM_DIR/vars.txt" ]]; then
   echo -e "${BLD_RED}ERROR: The variables file [vars.txt] was not found!${RST}"
   exit 1
@@ -30,9 +40,6 @@ baiano_not_dream() {
 }
 
 trap baiano_not_dream INT
-
-# Device
-DEVICE="$1"
 
 # Out
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
@@ -95,11 +102,6 @@ fi
 if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
   echo -e "${BLD_RED}ERROR: BOT_TOKEN and CHAT_ID must be defined!${RST}"
   exit 1
-fi
-
-# Jobs
-if [ -z "$JOBS" ]; then
-  JOBS=$(nproc)
 fi
 
 # Send TG msg
@@ -312,10 +314,6 @@ rclone_upload() {
     send_msg "❌ Upload failed: <i>rclone.config</i> not found!!"
     echo "${BLD_RED}ERROR: rclone.config not found!${RST}"
     exit 1
-  fi
-
-  if [[ -z "${UPLOAD_FOLDER:-}" ]]; then
-    UPLOAD_FOLDER=android
   fi
 
   rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
