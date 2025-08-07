@@ -49,9 +49,9 @@ showHelpAndExit() {
   echo -e "${BLU}${BLD}Options:${RST}"
   echo -e "${BLU}${BLD}  -h, --help             Display this help message${RST}"
   echo -e "${BLU}${BLD}  -b, --beta             Beta release :)${RST}"
-  echo -e "${BLU}${BLD}  -c, --toolchain NAME   Toolchain: aosp, aosp21, zyc, neutron${RST}"
+  echo -e "${BLU}${BLD}  -c, --toolchain NAME   Toolchain: aosp, aosp21, zyc, neutron (default: aosp)${RST}"
   echo -e "${BLU}${BLD}  -j, --jobs N           Number of parallel jobs (default: all threads)${RST}"
-  echo -e "${BLU}${BLD}  -u, --upload HOST      Upload host: telegram, gofile, pixeldrain${RST}"
+  echo -e "${BLU}${BLD}  -u, --upload HOST      Upload host: gofile, pixeldrain, telegram (default: telegram)${RST}"
   exit 1
 }
 
