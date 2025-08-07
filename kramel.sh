@@ -159,11 +159,7 @@ elapsed_time() {
 case "$TOOLCHAIN" in
   AOSP)
     if [[ ! -d clang ]]; then
-      AOSP_REV="r547379"
-      mkdir -p clang && cd clang
-      wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-$AOSP_REV.tgz
-      tar -xf clang-$AOSP_REV.tgz
-      cd "$ROOT_DIR"
+      git clone --depth=1 https://gitea.com/GustavoMends/r547379.git clang
     fi
     TC_PATH="${ROOT_DIR}/clang/bin"
     ;;
