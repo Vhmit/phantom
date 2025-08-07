@@ -22,16 +22,12 @@ TOOLCHAIN="AOSP"
 UPLOAD_HOST="telegram"
 
 # User vars
-VARS_FILE="$ROOT_DIR/vars.txt"
-if [[ ! -f "$VARS_FILE" ]]; then
+if [[ -z "$ROOT_DIR/vars.txt" ]]; then
   echo -e "${RED}${BLD}ERROR:${RST} vars.txt not found in $ROOT_DIR!"
   exit 1
 fi
 
-while IFS='=' read -r key value; do
-  [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
-  export "$key"="$value"
-done <"$VARS_FILE"
+export $(grep -vE '^\s*(#|$)' "$ROOT_DIR/vars.txt")
 
 # Date
 TM=$(date '+%Y%m%d-%H%M')
