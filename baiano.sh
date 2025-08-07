@@ -162,7 +162,7 @@ send_file() {
 lunching() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
-  local START_TIME=$(date +%s)
+  START_TIME=$(date +%s)
 
   source build/envsetup.sh
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
@@ -184,35 +184,38 @@ lunching() {
 building() {
   mka bacon -j "$JOBS"
 
-  local END_TIME=$(date +%s)
-  build_status $START_TIME $END_TIME
+  END_TIME=$(date +%s)
+  build_status
 }
 
 # Timer
 count_build_time() {
-  local START_TIME=$1
-  local END_TIME=$2
+  local ELAPSED=$((END_TIME - START_TIME))
 
-  local DURATION=$((END_TIME - START_TIME))
-  local SECONDS=$((DURATION % 60))
-  local MINUTES=$((DURATION / 60 % 60))
-  local HOURS=$((DURATION / 3600))
+  local HOURS=$((ELAPSED / 3600))
+  local MINUTES=$(((ELAPSED % 3600) / 60))
+  local SECONDS=$((ELAPSED % 60))
 
-  local TIME_MSG=""
-  [ $HOURS -gt 0 ] && TIME_MSG="${HOURS} h "
-  [ $MINUTES -gt 0 ] && TIME_MSG="${TIME_MSG}${MINUTES} min "
-  [ $SECONDS -gt 0 ] && TIME_MSG="${TIME_MSG}${SECONDS} s "
-
-  echo "$TIME_MSG"
+  if [ $HOURS -eq 0 ]; then
+    if [ $SECONDS -le 9 ]; then
+      echo "${MINUTES} min"
+    else
+      echo "${MINUTES} min ${SECONDS} s"
+    fi
+  else
+    if [ $SECONDS -le 9 ]; then
+      echo "${HOURS} h ${MINUTES} min"
+    else
+      echo "${HOURS} h ${MINUTES} min ${SECONDS} s"
+    fi
+  fi
 }
 
 # Build status
 build_status() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
-  local START_TIME=$1
-  local END_TIME=$2
-  BUILD_TIME=$(count_build_time $START_TIME $END_TIME)
+  BUILD_TIME=$(count_build_time)
 
   BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-$PROJECT_VERSION.0-*.zip" -print -quit)"
 
