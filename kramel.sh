@@ -18,7 +18,7 @@ DEVICE="$1"
 
 # Defaults
 JOBS="$(nproc)"
-TOOLCHAIN="AOSP"
+TOOLCHAIN="aosp"
 UPLOAD_HOST="telegram"
 
 # User vars
@@ -49,7 +49,7 @@ showHelpAndExit() {
   echo -e "${BLU}${BLD}Options:${RST}"
   echo -e "${BLU}${BLD}  -h, --help             Display this help message${RST}"
   echo -e "${BLU}${BLD}  -b, --beta             Beta release :)${RST}"
-  echo -e "${BLU}${BLD}  -c, --toolchain NAME   Toolchain: clang (AOSP), zyc, neutron${RST}"
+  echo -e "${BLU}${BLD}  -c, --toolchain NAME   Toolchain: aosp, aosp21, zyc, neutron${RST}"
   echo -e "${BLU}${BLD}  -j, --jobs N           Number of parallel jobs (default: all threads)${RST}"
   echo -e "${BLU}${BLD}  -u, --upload HOST      Upload host: telegram, gofile, pixeldrain${RST}"
   exit 1
@@ -157,11 +157,18 @@ elapsed_time() {
 
 # toolchain
 case "$TOOLCHAIN" in
-  AOSP)
+  aosp)
     if [[ ! -d clang ]]; then
       git clone --depth=1 https://gitea.com/GustavoMends/r547379.git clang
     fi
     TC_PATH="${ROOT_DIR}/clang/bin"
+    ;;
+
+  aosp21)
+    if [[ ! -d clang21 ]]; then
+      git clone --depth=1 https://gitea.com/GustavoMends/r563880b.git clang21
+    fi
+    TC_PATH="${ROOT_DIR}/clang21/bin"
     ;;
 
   neutron)
