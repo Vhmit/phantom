@@ -237,7 +237,7 @@ uploading() {
       UPLOAD_HOST_NAME="Gofile"
       gofile_upload "$BUILD_PACKAGE"
       ;;
-    pixeldrain)
+    pdrain)
       echo -e "${LIGHT_GREEN}Starting upload to PixelDrain...${RST}"
       UPLOAD_HOST_NAME="Pixel Drain"
       pixeldrain_upload "$BUILD_PACKAGE"
