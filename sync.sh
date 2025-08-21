@@ -16,6 +16,8 @@ send_msg() {
 
 send_msg "✈️ Sync inicied!"
 
+START_TIME=$(date +%s)
+
 repo sync -c --force-sync --optimized-fetch --no-tags --no-clone-bundle --prune -j$(nproc --all)
 
 if [ $? -ne 0 ]; then
@@ -23,4 +25,31 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-send_msg "✅ Source has been fully synced!"
+END_TIME=$(date +%s)
+
+# Timer
+count_sync_time() {
+  local ELAPSED=$((END_TIME - START_TIME))
+
+  local HOURS=$((ELAPSED / 3600))
+  local MINUTES=$(((ELAPSED % 3600) / 60))
+  local SECONDS=$((ELAPSED % 60))
+
+  if [ $HOURS -eq 0 ]; then
+    if [ $SECONDS -le 9 ]; then
+      echo "${MINUTES} min"
+    else
+      echo "${MINUTES} min ${SECONDS} s"
+    fi
+  else
+    if [ $SECONDS -le 9 ]; then
+      echo "${HOURS} h ${MINUTES} min"
+    else
+      echo "${HOURS} h ${MINUTES} min ${SECONDS} s"
+    fi
+  fi
+}
+
+SYNC_TIME=$(count_sync_time)
+
+send_msg "<b>✅ Source has been fully synced! </b>%0A⏱ <b>Total time elapsed: $SYNC_TIME</b>"
