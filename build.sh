@@ -19,8 +19,8 @@ ROM_DIR="$(pwd)"
 DEVICE="$1"
 
 # Defaults
-BUILD_TYPE="user"
-JOBS="$(nproc)"
+BUILD_TYPE="userdebug"
+JOBS="16"
 UPLOAD_HOST="gofile"
 
 # User vars
@@ -87,7 +87,7 @@ done
 if [ -z "$DEVICE" ] || [ -z "$BUILD_TYPE" ]; then
   echo -e "${BLD_RED}ERROR: DEVICE and BUILD_TYPE must be defined!${RST}"
   echo -e "${BLD_RED}Usage: $0 <DEVICE> <BUILD_TYPE>${RST}"
-  echo -e "${BLD_RED}Example: $0 alioth userdebug${RST}"
+  echo -e "${BLD_RED}Example: $0 jeter userdebug${RST}"
   exit 1
 fi
 
@@ -174,7 +174,7 @@ lunching() {
     BUILD_NUMBER="$(get_build_var BUILD_ID)"
     PROJECT_VERSION="$(get_build_var PLATFORM_VERSION)"
 
-    send_msg "<b>🛠 CI | PixelOS $PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
+    send_msg "<b>🛠 CI | PixelOS $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
     building
   fi
 }
@@ -222,7 +222,7 @@ build_status() {
     BUILD_NAME=$(basename "$BUILD_PACKAGE")
     BUILD_PACKAGE_SHA256=$(check_sha256 "$BUILD_PACKAGE")
 
-    send_msg "<b>✅ Build completed</b>%0A⏱ <b>$BUILD_TIME</b>"
+    send_msg "<b>✅ Build completed sucessfully</b>%0A⏱ <b>Total time elapsed: $BUILD_TIME</b>"
     uploading
   else
     push_log
@@ -264,7 +264,7 @@ gofile_upload() {
     URL_ID=$(echo "$RESPONSE" | grep -Po '(?<="downloadPage":")[^"]*')
 
     echo -e "${ORANGE}Upload complete!${RST}"
-    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+    send_msg "📦 <b>Build:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A🔗 <b>Domain: </b><code>$UPLOAD_HOST_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>"
   else
     send_msg "❌ Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
@@ -287,7 +287,7 @@ pixeldrain_upload() {
   PD_UPLOAD_ID=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^\"]*')
   if [ -n "$PD_UPLOAD_ID" ]; then
     URL_ID="https://pixeldrain.com/u/$PD_UPLOAD_ID"
-    send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>%0A🔗 <b>Download:</b> <a href=\"$URL_ID\">$UPLOAD_HOST_NAME</a>"
+    send_msg "📦 <b>Build:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A🔗 <b>Domain: </b><code>$UPLOAD_HOST_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>"
     echo -e "${LIGHT_GREEN}Upload complete!${RST}"
   else
     send_msg "❌ Upload failed!"
