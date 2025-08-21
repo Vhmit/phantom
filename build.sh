@@ -21,7 +21,6 @@ DEVICE="$1"
 # Defaults
 BUILD_TYPE="user"
 JOBS="$(nproc)"
-UPLOAD_FOLDER=android
 UPLOAD_HOST="gofile"
 
 # User vars
@@ -54,7 +53,7 @@ showHelpAndExit() {
   echo -e "${CLR_BLD_BLU}  -c, --clean               Wipe the tree before building${CLR_RST}"
   echo -e "${CLR_BLD_BLU}  -i, --installclean        Dirty build - Use 'installclean'${CLR_RST}"
   echo -e "${CLR_BLD_BLU}  -j, --jobs N              Number of parallel jobs (default: all threads)${CLR_RST}"
-  echo -e "${CLR_BLD_BLU}  -u, --upload HOST         Upload host: gdrive, gofile, pixeldrain${CLR_RST}"
+  echo -e "${CLR_BLD_BLU}  -u, --upload HOST         Upload host:gofile, pixeldrain${CLR_RST}"
   exit 1
 }
 
@@ -233,11 +232,6 @@ build_status() {
 # File upload
 uploading() {
   case "$UPLOAD_HOST" in
-    gdrive)
-      echo -e "${GRN}Starting upload to Google Drive...${RST}"
-      UPLOAD_HOST_NAME="Google Drive"
-      rclone_upload "$BUILD_PACKAGE" "gdrive"
-      ;;
     gofile)
       echo -e "${ORANGE}Starting upload to Gofile...${RST}"
       UPLOAD_HOST_NAME="Gofile"
@@ -300,29 +294,6 @@ pixeldrain_upload() {
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
     return 1
   fi
-}
-
-rclone_upload() {
-  local FILE_PATH="$1"
-  local HOST="$2"
-
-  RCLONE_BIN=$(command -v rclone)
-  RCLONE_CONF="$HOME/.config/rclone/rclone.conf"
-
-  if [[ -z "$RCLONE_BIN" ]]; then
-    send_msg "❌ Upload failed: <i>rclone</i> is not installed!"
-    echo "${BLD_RED}ERROR: rclone is not installed!${RST}"
-    exit 1
-  elif [[ ! -f "$RCLONE_CONF" ]]; then
-    send_msg "❌ Upload failed: <i>rclone.config</i> not found!!"
-    echo "${BLD_RED}ERROR: rclone.config not found!${RST}"
-    exit 1
-  fi
-
-  rclone copy $FILE_PATH $HOST:$UPLOAD_FOLDER
-
-  send_msg "🚀 <code>$BUILD_NAME</code>%0A🔐 SHA256: <code>$BUILD_PACKAGE_SHA256</code>"
-  echo -e "${GRN}Upload complete!${RST}"
 }
 
 # Build log
