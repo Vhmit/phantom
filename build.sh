@@ -97,9 +97,9 @@ if [[ "$BUILD_TYPE" != "eng" && "$BUILD_TYPE" != "userdebug" && "$BUILD_TYPE" !=
   exit 1
 fi
 
-# Bot token and chat ID
-if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
-  echo -e "${BLD_RED}ERROR: BOT_TOKEN and CHAT_ID must be defined!${RST}"
+# Bot token and chat/topic ID
+if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] || [ -z "$TOPIC_ID" ]; then
+  echo -e "${BLD_RED}ERROR: BOT_TOKEN and CHAT/TOPIC_ID must be defined!${RST}"
   exit 1
 fi
 
