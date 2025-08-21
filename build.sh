@@ -33,13 +33,13 @@ fi
 export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
 
 # Guard
-baiano_not_dream() {
+phantom_not_dream() {
   echo -e "${BLD_RED}Build aborted!${RST}"
   FLAG_BUILD_ABORTED=y
   exit 1
 }
 
-trap baiano_not_dream INT
+trap phantom_not_dream INT
 
 # Out
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
