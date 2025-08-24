@@ -228,13 +228,14 @@ build_status() {
     # Main upload
     uploading
     
-    # Only run uploading_boot if the device has AB_OTA_PARTITIONS += boot
-    if grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/BoardConfig.mk" 2>/dev/null || \
-       grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/BoardConfigCommon.mk" 2>/dev/null; then \
-       grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/common.mk" 2>/dev/null; then \
-       grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/device.mk" 2>/dev/null; then
-      uploading_boot
-    fi
+    # Only run uploading_boot if the device has AB_OTA_PARTITIONS += boot (user allow in vars.txt - UPLOAD_FILES_AB=yes)
+    if [ -n "${UPLOAD_FILES_AB}" ] && [ "${UPLOAD_FILES_AB}" = "yes" ]; then
+      if grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/BoardConfig.mk" 2>/dev/null || \
+         grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/BoardConfigCommon.mk" 2>/dev/null; then \
+         grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/common.mk" 2>/dev/null; then \
+         grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/device.mk" 2>/dev/null; then
+        uploading_boot
+      fi
   else
     push_log
   fi
