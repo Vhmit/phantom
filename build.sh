@@ -42,6 +42,7 @@ trap phantom_not_dream INT
 
 # Out
 OUT_DIR="$ROM_DIR/out/target/product/$DEVICE"
+OUT_DIR_BOOT="$OUT_DIR/boot.img"
 
 # Output usage help
 showHelpAndExit() {
@@ -223,7 +224,17 @@ build_status() {
     BUILD_PACKAGE_SHA256=$(check_sha256 "$BUILD_PACKAGE")
 
     send_msg "<b>✅ Build completed sucessfully</b>%0A⏱ <b>Total time elapsed: $BUILD_TIME</b>"
+    
+    # Main upload
     uploading
+    
+    # Only run uploading_boot if the device has AB_OTA_PARTITIONS += boot
+    if grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/BoardConfig.mk" 2>/dev/null || \
+       grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/BoardConfigCommon.mk" 2>/dev/null; then \
+       grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/common.mk" 2>/dev/null; then \
+       grep -q "AB_OTA_PARTITIONS.*boot" "device/$VENDOR/$DEVICE/device.mk" 2>/dev/null; then
+      uploading_boot
+    fi
   else
     push_log
   fi
@@ -244,6 +255,24 @@ uploading() {
       ;;
     *)
       echo -e "${BLD_BLU}WARNING: No upload host defined!${RST}"
+      ;;
+  esac
+}
+
+uploading_boot() {
+  case "$UPLOAD_HOST" in
+    gofile)
+      echo -e "${ORANGE}Starting boot.img upload to Gofile...${RST}"
+      UPLOAD_HOST_NAME="Gofile"
+      gofile_upload_boot "$OUT_DIR_BOOT"
+      ;;
+    pdrain)
+      echo -e "${LIGHT_GREEN}Starting boot.img upload to PixelDrain...${RST}"
+      UPLOAD_HOST_NAME="Pixel Drain"
+      pixeldrain_upload_boot "$OUT_DIR_BOOT"
+      ;;
+    *)
+      echo -e "${BLD_BLU}WARNING: No upload host defined for boot!${RST}"
       ;;
   esac
 }
@@ -271,6 +300,28 @@ gofile_upload() {
   fi
 }
 
+gofile_upload_boot() {
+  local FILE_PATH="$1"
+  local FILE_NAME="${FILE_PATH##*/}"
+
+  local RESPONSE
+  RESPONSE=$(curl -# -F "name=$FILE_NAME" -F "file=@$FILE_PATH" "https://store1.gofile.io/contents/uploadfile")
+
+  local UPLOAD_STATUS
+  UPLOAD_STATUS=$(echo "$RESPONSE" | grep -Po '(?<="status":")[^"]*')
+
+  if [ "$UPLOAD_STATUS" = 'ok' ]; then
+    local URL_ID
+    URL_ID=$(echo "$RESPONSE" | grep -Po '(?<="downloadPage":")[^"]*')
+
+    echo -e "${ORANGE}Upload complete!${RST}"
+    send_msg "📦 <b>2. Boot:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A🔗 <b>Domain: </b><code>$UPLOAD_HOST_NAME</code>"
+  else
+    send_msg "❌ Upload boot failed!"
+    echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
+  fi
+}
+
 # Upload to PixelDrain
 pixeldrain_upload() {
   local FILE_PATH="$1"
@@ -291,6 +342,30 @@ pixeldrain_upload() {
     echo -e "${LIGHT_GREEN}Upload complete!${RST}"
   else
     send_msg "❌ Upload failed!"
+    echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
+    return 1
+  fi
+}
+
+pixeldrain_upload_boot() {
+  local FILE_PATH="$1"
+  local FILE_NAME="${FILE_PATH##*/}"
+
+  if [ -z "$PIXELDRAIN_API_TOKEN" ]; then
+    send_msg "<b>❌ Upload failed: <i>PIXELDRAIN_API_TOKEN</i> not found!</b>"
+    echo -e "${BLD_RED}ERROR: PIXELDRAIN_API_TOKEN not found!${RST}"
+    return 1
+  fi
+
+  RESPONSE=$(curl -T "$FILE_PATH" -u :$PIXELDRAIN_API_TOKEN https://pixeldrain.com/api/file/)
+
+  PD_UPLOAD_ID=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^\"]*')
+  if [ -n "$PD_UPLOAD_ID" ]; then
+    URL_ID="https://pixeldrain.com/u/$PD_UPLOAD_ID"
+    send_msg "📦 <b>2. Boot:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A🔗 <b>Domain: </b><code>$UPLOAD_HOST_NAME</code>"
+    echo -e "${LIGHT_GREEN}Upload complete!${RST}"
+  else
+    send_msg "❌ Upload boot failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
     return 1
   fi
