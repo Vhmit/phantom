@@ -174,7 +174,7 @@ lunching() {
     BUILD_NUMBER="$(get_build_var BUILD_ID)"
     PROJECT_VERSION="$(get_build_var PLATFORM_VERSION)"
 
-    send_msg "<b>🛠 CI | PixelOS $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
+    send_msg "<b>🛠 CI | PixelOS $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A<b>☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
     building
   fi
 }
