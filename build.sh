@@ -122,14 +122,14 @@ clean_house() {
     echo -e "${BLD_BLU}Cleaning all compiled files from previous builds...${RST}"
 
     source build/envsetup.sh
-    breakfast "$DEVICE" "$BUILD_TYPE"
+    lunch lineage_$DEVICE-$BUILD_TYPE
     make clean
   elif [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
     echo -e "${BLD_BLU}Cleaning compiled files from previous builds...${RST}"
-    rm -f $OUT_DIR/PixelOS_$DEVICE-*
+    rm -f $OUT_DIR/lineage-rev-18.1-*
 
     source build/envsetup.sh
-    breakfast "$DEVICE" "$BUILD_TYPE"
+    lunch lineage_$DEVICE-$BUILD_TYPE
     make installclean
   fi
 }
@@ -164,7 +164,7 @@ lunching() {
   START_TIME=$(date +%s)
 
   source build/envsetup.sh
-  breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
+  lunch lineage_$DEVICE-$BUILD_TYPE &>lunch_log.txt
 
   if grep -q "dumpvars failed with" lunch_log.txt; then
     send_msg "<b>❌ Lunch failed!</b>"
@@ -174,7 +174,7 @@ lunching() {
     BUILD_NUMBER="$(get_build_var BUILD_ID)"
     PROJECT_VERSION="$(get_build_var PLATFORM_VERSION)"
 
-    send_msg "<b>🛠 CI | PixelOS $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A<b>☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
+    send_msg "<b>🛠 CI | LineageOS-rev $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A<b>☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
     building
   fi
 }
@@ -216,7 +216,7 @@ build_status() {
 
   BUILD_TIME=$(count_build_time)
 
-  BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-$PROJECT_VERSION.0-*.zip" -print -quit)"
+  BUILD_PACKAGE="$(find "$OUT_DIR" -name "lineage-rev-18.1-*.zip" -print -quit)"
 
   if [ -n "$BUILD_PACKAGE" ]; then
     BUILD_NAME=$(basename "$BUILD_PACKAGE")
