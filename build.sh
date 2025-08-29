@@ -126,7 +126,7 @@ clean_house() {
     make clean
   elif [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
     echo -e "${BLD_BLU}Cleaning compiled files from previous builds...${RST}"
-    rm -f $OUT_DIR/lineage-rev-18.1-*
+    rm -f $OUT_DIR/crDroid-rev-11.0-*
 
     source build/envsetup.sh
     lunch lineage_$DEVICE-$BUILD_TYPE
@@ -174,7 +174,7 @@ lunching() {
     BUILD_NUMBER="$(get_build_var BUILD_ID)"
     PROJECT_VERSION="$(get_build_var PLATFORM_VERSION)"
 
-    send_msg "<b>🛠 CI | LineageOS-rev $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A<b>☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
+    send_msg "<b>🛠 CI | crDroid-rev $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A<b>☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
     building
   fi
 }
@@ -216,7 +216,7 @@ build_status() {
 
   BUILD_TIME=$(count_build_time)
 
-  BUILD_PACKAGE="$(find "$OUT_DIR" -name "lineage-rev-18.1-*.zip" -print -quit)"
+  BUILD_PACKAGE="$(find "$OUT_DIR" -name "crDroid-rev-11.0-*.zip" -print -quit)"
 
   if [ -n "$BUILD_PACKAGE" ]; then
     BUILD_NAME=$(basename "$BUILD_PACKAGE")
