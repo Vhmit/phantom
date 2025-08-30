@@ -52,4 +52,4 @@ count_sync_time() {
 
 SYNC_TIME=$(count_sync_time)
 
-send_msg "<b>✅ Source has been fully synced! </b>%0A⏱ <b>Total time elapsed: $SYNC_TIME</b>"
+send_msg "<b>✅ Havoc-OS 11 rev has been fully synced! </b>%0A⏱ <b>Total time elapsed: $SYNC_TIME</b>"
