@@ -14,14 +14,14 @@ send_msg() {
     -d disable_web_page_preview=true
 }
 
-send_msg "✈️ Sync inicied!"
+send_msg "Sync started!"
 
 START_TIME=$(date +%s)
 
 repo sync -c --force-sync --optimized-fetch --no-tags --no-clone-bundle --prune -j$(nproc --all)
 
 if [ $? -ne 0 ]; then
-  send_msg "❌ Sync Failed!"
+  send_msg "Sync Failed!"
   exit 1
 fi
 
@@ -52,4 +52,4 @@ count_sync_time() {
 
 SYNC_TIME=$(count_sync_time)
 
-send_msg "<b>✅ Source has been fully synced! </b>%0A⏱ <b>Total time elapsed: $SYNC_TIME</b>"
+send_msg "<b>Source has been fully synced! </b>%0A<b>Total time elapsed: $SYNC_TIME</b>"

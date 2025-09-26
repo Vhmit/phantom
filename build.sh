@@ -20,7 +20,7 @@ DEVICE="$1"
 
 # Defaults
 BUILD_TYPE="userdebug"
-JOBS="16"
+JOBS="8"
 UPLOAD_HOST="gofile"
 
 # User vars
@@ -167,14 +167,14 @@ lunching() {
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
 
   if grep -q "dumpvars failed with" lunch_log.txt; then
-    send_msg "<b>❌ Lunch failed!</b>"
+    send_msg "<b>Lunch failed!</b>"
     send_file lunch_log.txt
   else
     # Vars
     BUILD_NUMBER="$(get_build_var BUILD_ID)"
     PROJECT_VERSION="$(get_build_var PLATFORM_VERSION)"
 
-    send_msg "<b>🛠 CI | PixelOS $PROJECT_VERSION</b>%0A<b>📲 Device:</b> <code>$DEVICE</code>%0A<b>🛡 Type:</b> <code>$BUILD_TYPE</code>%0A<b>☠️ Cores:</b> <code>$JOBS</code>%0A<b>🌚 ID:</b> <code>$BUILD_NUMBER</code>"
+    send_msg "<b>🛠 CI | PixelOS A$PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Build type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
     building
   fi
 }
@@ -222,7 +222,7 @@ build_status() {
     BUILD_NAME=$(basename "$BUILD_PACKAGE")
     BUILD_PACKAGE_SHA256=$(check_sha256 "$BUILD_PACKAGE")
 
-    send_msg "<b>✅ Build completed sucessfully</b>%0A⏱ <b>Total time elapsed: $BUILD_TIME</b>"
+    send_msg "<b>Build completed sucessfully! </b>%0A<b>Total time elapsed: $BUILD_TIME</b>"
     uploading
   else
     push_log
@@ -264,9 +264,9 @@ gofile_upload() {
     URL_ID=$(echo "$RESPONSE" | grep -Po '(?<="downloadPage":")[^"]*')
 
     echo -e "${ORANGE}Upload complete!${RST}"
-    send_msg "📦 <b>Build:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A🔗 <b>Domain: </b><code>$UPLOAD_HOST_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>"
+    send_msg "<b>Build:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A<b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>"
   else
-    send_msg "❌ Upload failed!"
+    send_msg "Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
   fi
 }
@@ -277,7 +277,7 @@ pixeldrain_upload() {
   local FILE_NAME="${FILE_PATH##*/}"
 
   if [ -z "$PIXELDRAIN_API_TOKEN" ]; then
-    send_msg "<b>❌ Upload failed: <i>PIXELDRAIN_API_TOKEN</i> not found!</b>"
+    send_msg "<b>Upload failed: <i>PIXELDRAIN_API_TOKEN</i> not found!</b>"
     echo -e "${BLD_RED}ERROR: PIXELDRAIN_API_TOKEN not found!${RST}"
     return 1
   fi
@@ -287,10 +287,10 @@ pixeldrain_upload() {
   PD_UPLOAD_ID=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^\"]*')
   if [ -n "$PD_UPLOAD_ID" ]; then
     URL_ID="https://pixeldrain.com/u/$PD_UPLOAD_ID"
-    send_msg "📦 <b>Build:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A🔗 <b>Domain: </b><code>$UPLOAD_HOST_NAME</code>%0A🔐 <b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>"
+    send_msg "<b>Build:</b> <a href=\"$URL_ID\">$BUILD_NAME</a>%0A<b>SHA256: </b><code>$BUILD_PACKAGE_SHA256</code>"
     echo -e "${LIGHT_GREEN}Upload complete!${RST}"
   else
-    send_msg "❌ Upload failed!"
+    send_msg "Upload failed!"
     echo -e "${BLD_RED}ERROR: Upload failed!${RST}"
     return 1
   fi
@@ -302,7 +302,7 @@ push_log() {
 
   local LOG="$ROM_DIR/out/error.log"
 
-  send_msg "❌ Build failed"
+  send_msg "Build failed!"
   send_file "$LOG"
 }
 
