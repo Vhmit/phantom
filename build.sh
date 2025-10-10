@@ -302,7 +302,7 @@ push_log() {
 
   local LOG="$ROM_DIR/out/error.log"
   local TIMESTAMP
-  TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+  TIMESTAMP=$(TZ="America/Bahia" date +"%Y%m%d_%H%M%S")
   local OUTFILE="log_${TIMESTAMP}.txt"
 
   cat "$LOG" > "$OUTFILE"
