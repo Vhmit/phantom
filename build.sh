@@ -301,9 +301,14 @@ push_log() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
   local LOG="$ROM_DIR/out/error.log"
+  local TIMESTAMP
+  TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+  local OUTFILE="log_${TIMESTAMP}.txt"
+
+  cat "$LOG" > "$OUTFILE"
 
   send_msg "Build failed!"
-  send_file "$LOG"
+  send_file "$OUTFILE"
 }
 
 clean_house
