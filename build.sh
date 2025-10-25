@@ -296,19 +296,39 @@ pixeldrain_upload() {
   fi
 }
 
+# Paste content to katb.in
+function katbin() {
+    local content
+    if [[ -z "$1" ]]; then
+        if [[ -t 0 ]]; then
+            echo "Error: No content provided. Provide as argument or pipe in."
+            return 1
+        else
+            content=$(cat)
+        fi
+    else
+        content="$1"
+    fi
+    curl -sL 'https://katb.in/api/paste' --json '{"paste":{"content":"'"$content"'"}}' | jq -r '"https://katb.in/\(.id)"'
+}
+
 # Build log
 push_log() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
   local LOG="$ROM_DIR/out/error.log"
-  local TIMESTAMP
-  TIMESTAMP=$(TZ="America/Bahia" date +"%Y%m%d_%H%M%S")
-  local OUTFILE="log_${TIMESTAMP}.txt"
+    [ ! -f "$LOG" ] && send_msg "Log file not found!" && return 1
 
-  cat "$LOG" > "$OUTFILE"
+    send_msg "Build failed!"
 
-  send_msg "Build failed!"
-  send_file "$OUTFILE"
+    echo "Sending log..."
+    local URL
+    URL=$(katbin "$(cat "$LOG")")
+    if [[ "$URL" == https://katb.in/* ]]; then
+        send_msg "Log available at: $URL"
+    else
+        send_msg "Failed to send log to Katbin!"
+    fi
 }
 
 clean_house
