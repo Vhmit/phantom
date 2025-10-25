@@ -296,38 +296,60 @@ pixeldrain_upload() {
   fi
 }
 
-# Paste content to katb.in
-function katbin() {
-    local content
-    if [[ -z "$1" ]]; then
-        if [[ -t 0 ]]; then
-            echo "Error: No content provided. Provide as argument or pipe in."
-            return 1
-        else
-            content=$(cat)
-        fi
+# Upload file to Katbin
+katbin() {
+    local FILE="$1"
+    [ ! -f "$FILE" ] && { echo "File not found: $FILE"; return 1; }
+
+    # Read the file contents and send it via JSON to Katbin
+    local RESPONSE
+    RESPONSE=$(curl -sL 'https://katb.in/api/paste' --json "$(jq -n --arg content "$(cat "$FILE")" '{"paste":{"content":$content}}')")
+
+    # Extract the ID from the returned JSON
+    local KEY
+    KEY=$(echo "$RESPONSE" | jq -r '.id // empty')
+
+    if [ -n "$KEY" ]; then
+        echo "https://katb.in/${KEY}"
     else
-        content="$1"
+        echo "Failed to upload to Katbin. Response: $RESPONSE"
+        return 1
     fi
-    curl -sL 'https://katb.in/api/paste' --json '{"paste":{"content":"'"$content"'"}}' | jq -r '"https://katb.in/\(.id)"'
 }
 
 # Build log
 push_log() {
-  [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
+    [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
 
-  local LOG="$ROM_DIR/out/error.log"
+    local LOG="$ROM_DIR/out/error.log"
     [ ! -f "$LOG" ] && send_msg "Log file not found!" && return 1
+
+    # Create file with timestamp
+    local TIMESTAMP
+    TIMESTAMP=$(TZ="America/Bahia" date +"%Y%m%d_%H%M%S")
+    local OUTFILE="log_${TIMESTAMP}.txt"
+    cp "$LOG" "$OUTFILE"
 
     send_msg "Build failed!"
 
-    echo "Sending log..."
-    local URL
-    URL=$(katbin "$(cat "$LOG")")
-    if [[ "$URL" == https://katb.in/* ]]; then
-        send_msg "Log available at: $URL"
+    echo "Checking if Katbin is online..."
+    if curl -s --max-time 5 -o /dev/null -w "%{http_code}" https://katb.in | grep -q '^2'; then
+        echo "Katbin online, sending log..."
+        local URL
+        URL=$(katbin "$OUTFILE")
+        if [[ "$URL" == https://katb.in/* ]]; then
+            send_msg "Log available at: $URL"
+            echo "✅ Log sent to Katbin: $URL"
+            return 0
+        else
+            echo "❌ Katbin upload failed. Sending log locally..."
+            send_msg "Katbin upload failed. Sending log locally..."
+            send_file "$OUTFILE"
+        fi
     else
-        send_msg "Failed to send log to Katbin!"
+        echo "⚠️ Katbin offline. Sending log locally..."
+        send_msg "Katbin is offline. Sending log locally..."
+        send_file "$OUTFILE"
     fi
 }
 
