@@ -103,6 +103,10 @@ if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
   exit 1
 fi
 
+# Check dependencies
+command -v repo >/dev/null 2>&1 || { echo "❌ 'repo' command not found. Install it first."; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "❌ 'jq' command not found. Install it first."; exit 1; }
+
 # Send TG msg
 send_msg() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
