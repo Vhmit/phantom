@@ -12,8 +12,8 @@ fi
 
 export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
 
-if [ -z "$BOT_TOKEN" ] || { [ -z "$CHAT_ID" ] && [ -z "$TOPIC_ID" ]; }; then
-  echo -e "❌ BOT_TOKEN and at least one of CHAT_ID or TOPIC_ID must be defined in vars.txt"
+if [ -z "$BOT_TOKEN" ] || ( [ -z "$CHAT_ID" ] && [ -z "$TOPIC_ID" ] ); then
+  echo "❌ BOT_TOKEN and at least one of CHAT_ID or TOPIC_ID must be defined in vars.txt"
   exit 1
 fi
 
@@ -32,11 +32,7 @@ send_msg "Sync started!"
 START_TIME=$(date +%s)
 
 repo sync -c --force-sync --optimized-fetch --no-tags --no-clone-bundle --prune -j$(nproc --all)
-
-if [ $? -ne 0 ]; then
-  send_msg "Sync Failed!"
-  exit 1
-fi
+SYNC_RESULT=$?
 
 END_TIME=$(date +%s)
 
@@ -65,4 +61,11 @@ count_sync_time() {
 
 SYNC_TIME=$(count_sync_time)
 
-send_msg "<b>Source has been fully synced! </b>%0A<b>Total time elapsed: $SYNC_TIME</b>"
+if [ $SYNC_RESULT -eq 0 ]; then
+  send_msg "<b>Source has been fully synced!</b>%0A<b>Total time elapsed: $SYNC_TIME</b>"
+  echo "✅ Sync completed in $SYNC_TIME"
+else
+  send_msg "<b>The source experienced sync failures.</b>%0A<b>Total time elapsed: $SYNC_TIME</b>"
+  echo "❌ Sync failed after $SYNC_TIME"
+  exit 1
+fi
