@@ -32,6 +32,14 @@ send_msg() {
     -d disable_web_page_preview=true
 }
 
+# Handle Ctrl+C (user interruption)
+trap 'on_interrupt' SIGINT
+on_interrupt() {
+    echo "❌ Sync interrupted by user."
+    send_msg "<b>Sync was interrupted by user (Ctrl+C).</b>"
+    exit 130
+}
+
 # Start sync
 send_msg "Sync of <b>$ORG_NAME</b> (<b>$MANIFEST_BRANCH</b>) started!"
 
