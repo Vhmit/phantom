@@ -17,6 +17,11 @@ if [ -z "$BOT_TOKEN" ] || ( [ -z "$CHAT_ID" ] && [ -z "$TOPIC_ID" ] ); then
   exit 1
 fi
 
+# Identify ROM folder/org and branch
+ROM_NAME="$(basename "$ROM_DIR")"
+ORG_NAME=$(grep -oP '(?<=url = https://github.com/)[^/]+(?=/)' .repo/manifests/.git/config 2>/dev/null | head -n1 || echo "$ROM_NAME")
+MANIFEST_BRANCH=$(grep -oP '(?<=<default revision=")[^"]+' .repo/manifests/default.xml 2>/dev/null | sed 's#refs/heads/##')
+
 # Send TG msg
 send_msg() {
   local MSG="$1"
@@ -27,7 +32,8 @@ send_msg() {
     -d disable_web_page_preview=true
 }
 
-send_msg "Sync started!"
+# Start sync
+send_msg "Sync of <b>$ORG_NAME</b> (<b>$MANIFEST_BRANCH</b>) started!"
 
 START_TIME=$(date +%s)
 
@@ -62,10 +68,10 @@ count_sync_time() {
 SYNC_TIME=$(count_sync_time)
 
 if [ $SYNC_RESULT -eq 0 ]; then
-  send_msg "<b>Source has been fully synced!</b>%0A<b>Total time elapsed: $SYNC_TIME</b>"
+  send_msg "<b>$ORG_NAME</b> was successfully synced!%0A<b>Total time elapsed:</b> $SYNC_TIME"
   echo "✅ Sync completed in $SYNC_TIME"
 else
-  send_msg "<b>The source experienced sync failures.</b>%0A<b>Total time elapsed: $SYNC_TIME</b>"
+  send_msg "<b>$ORG_NAME</b> experienced sync failures.%0ACheck the log on the server."
   echo "❌ Sync failed after $SYNC_TIME"
   exit 1
 fi
