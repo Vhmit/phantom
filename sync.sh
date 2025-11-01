@@ -2,7 +2,20 @@
 # Colors
 
 ROM_DIR="$(pwd)"
+
+# User vars
+VARS_FILE="$ROM_DIR/vars.txt"
+if [ ! -f "$VARS_FILE" ]; then
+  echo "❌ File vars.txt not found."
+  exit 1
+fi
+
 export $(grep -vE '^\s*(#|$)' "$ROM_DIR/vars.txt")
+
+if [ -z "$BOT_TOKEN" ] || { [ -z "$CHAT_ID" ] && [ -z "$TOPIC_ID" ]; }; then
+  echo -e "❌ BOT_TOKEN and at least one of CHAT_ID or TOPIC_ID must be defined in vars.txt"
+  exit 1
+fi
 
 # Send TG msg
 send_msg() {
