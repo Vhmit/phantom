@@ -17,6 +17,12 @@ if [ -z "$BOT_TOKEN" ] || ( [ -z "$CHAT_ID" ] && [ -z "$TOPIC_ID" ] ); then
   exit 1
 fi
 
+# Verify repository has been initialized
+if [ ! -d ".repo/manifests" ]; then
+    echo "❌ Repo not initialized. Please run repo init first."
+    exit 1
+fi
+
 # Identify ROM folder/org
 ROM_NAME="$(basename "$ROM_DIR")"
 ORG_NAME=$(grep -oP '(?<=url = https://github.com/)[^/]+(?=/)' .repo/manifests/.git/config 2>/dev/null | head -n1 || echo "$ROM_NAME")
