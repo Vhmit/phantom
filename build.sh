@@ -220,7 +220,7 @@ build_status() {
 
   BUILD_TIME=$(count_build_time)
 
-  BUILD_PACKAGE="$(find "$OUT_DIR" -name "PixelOS_$DEVICE-$PROJECT_VERSION.0-*.zip" -print -quit)"
+  BUILD_PACKAGE=$(ls -t "$OUT_DIR"/*.zip 2>/dev/null | head -n1)
 
   if [ -n "$BUILD_PACKAGE" ]; then
     BUILD_NAME=$(basename "$BUILD_PACKAGE")
