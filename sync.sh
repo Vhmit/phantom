@@ -17,10 +17,17 @@ if [ -z "$BOT_TOKEN" ] || ( [ -z "$CHAT_ID" ] && [ -z "$TOPIC_ID" ] ); then
   exit 1
 fi
 
-# Identify ROM folder/org and branch
+# Identify ROM folder/org
 ROM_NAME="$(basename "$ROM_DIR")"
 ORG_NAME=$(grep -oP '(?<=url = https://github.com/)[^/]+(?=/)' .repo/manifests/.git/config 2>/dev/null | head -n1 || echo "$ROM_NAME")
-MANIFEST_BRANCH=$(grep -oP '(?<=<default revision=")[^"]+' .repo/manifests/default.xml 2>/dev/null | sed 's#refs/heads/##')
+
+# Identify branch
+MANIFEST_BRANCH=$(git -C .repo/manifests rev-parse HEAD 2>/dev/null)
+MANIFEST_BRANCH=$(git -C .repo/manifests branch -r --contains "$MANIFEST_BRANCH" 2>/dev/null | head -n1)
+MANIFEST_BRANCH=$(echo "$MANIFEST_BRANCH" | sed 's#.*/##; s#.*-> ##' | xargs)
+if [ -z "$MANIFEST_BRANCH" ]; then
+    MANIFEST_BRANCH=$(grep -oP '(?<=<default revision=")[^"]+' .repo/manifests/default.xml 2>/dev/null)
+fi
 
 # Send TG msg
 send_msg() {
