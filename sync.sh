@@ -58,7 +58,7 @@ send_msg "Sync of <b>$ORG_NAME</b> (<b>$MANIFEST_BRANCH</b>) started!"
 
 START_TIME=$(date +%s)
 
-repo sync -c --force-sync --optimized-fetch --no-tags --no-clone-bundle --prune -j$(nproc --all)
+repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 SYNC_RESULT=$?
 
 END_TIME=$(date +%s)
