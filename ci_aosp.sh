@@ -223,7 +223,23 @@ fi
 clean_house() {
   rm -f lunch_log.txt
   source build/envsetup.sh
-  breakfast "$DEVICE" "$BUILD_TYPE"
+
+  # Choose between breakfast and lunch (with prefix)
+  if [ -n "$LUNCH_PREFIX" ]; then
+
+      # TARGET assembly based on variables
+      if [ -n "$LUNCH_RELEASE" ]; then
+          # lineage_device-ap2a-userdebug
+          TARGET="${LUNCH_PREFIX}_${DEVICE}-${LUNCH_RELEASE}-${BUILD_TYPE}"
+      else
+          # lineage_device-userdebug
+          TARGET="${LUNCH_PREFIX}_${DEVICE}-${BUILD_TYPE}"
+      fi
+
+      lunch "$TARGET" &> lunch_log.txt
+  else
+      breakfast "$DEVICE" "$BUILD_TYPE" &> lunch_log.txt
+  fi
 
   # Flag status
   CLEAN_STATUS=""
@@ -251,8 +267,25 @@ lunching() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
   START_TIME=$(date +%s)
   source build/envsetup.sh
-  breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
 
+  # Choose between breakfast and lunch (with prefix)
+  if [ -n "$LUNCH_PREFIX" ]; then
+
+      # TARGET assembly based on variables
+      if [ -n "$LUNCH_RELEASE" ]; then
+          # lineage_device-ap2a-userdebug
+          TARGET="${LUNCH_PREFIX}_${DEVICE}-${LUNCH_RELEASE}-${BUILD_TYPE}"
+      else
+          # lineage_device-userdebug
+          TARGET="${LUNCH_PREFIX}_${DEVICE}-${BUILD_TYPE}"
+      fi
+
+      lunch "$TARGET" &> lunch_log.txt
+  else
+      breakfast "$DEVICE" "$BUILD_TYPE" &> lunch_log.txt
+  fi
+
+  # Detect error in dumpvars (lunch/breakfast failure)
   if grep -q "dumpvars failed with" lunch_log.txt; then
     send_msg "<b>Lunch failed!</b>"
     send_file lunch_log.txt

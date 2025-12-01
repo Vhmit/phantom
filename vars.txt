@@ -1,3 +1,8 @@
+# Build Configuration
+LUNCH_PREFIX=
+LUNCH_RELEASE=
+
+# Telegram Configuration
 BOT_TOKEN=
 CHAT_ID=
 PIXELDRAIN_API_TOKEN=
