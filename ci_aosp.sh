@@ -47,6 +47,12 @@ set -a
 source "$VARS_FILE"
 set +a
 
+# Verify repository has been initialized
+if [ ! -d ".repo/manifests" ]; then
+    echo "❌ Repo not initialized. Please run repo init first."
+    exit 1
+fi
+
 # Guard and interrupt
 phantom_not_dream() {
     echo -e "${BLD_RED}❌ Sync interrupted by user.${RST}"
@@ -67,6 +73,9 @@ trap_build_ctrlc() {
     send_msg "<b>Build aborted!</b>"
     exit 130
 }
+
+# Set trap for build early, before clean/meal/lunch/build
+trap trap_build_ctrlc INT
 
 # Send TG msg/file
 send_msg() {
@@ -93,6 +102,16 @@ send_file() {
        -F reply_to_message_id="$TOPIC_ID" \
        -F document=@"$FILE"
 }
+
+# Identify ROM/branch
+ROM_NAME="$(basename "$ROM_DIR")"
+ORG_NAME=$(grep -oP '(?<=url = https://github.com/)[^/]+(?=/)' .repo/manifests/.git/config 2>/dev/null | head -n1 || echo "$ROM_NAME")
+MANIFEST_BRANCH=$(git -C .repo/manifests rev-parse HEAD 2>/dev/null)
+MANIFEST_BRANCH=$(git -C .repo/manifests branch -r --contains "$MANIFEST_BRANCH" 2>/dev/null | head -n1)
+MANIFEST_BRANCH=$(echo "$MANIFEST_BRANCH" | sed 's#.*/##; s#.*-> ##' | xargs)
+if [ -z "$MANIFEST_BRANCH" ]; then
+    MANIFEST_BRANCH=$(grep -oP '(?<=<default revision=")[^"]+' .repo/manifests/default.xml 2>/dev/null)
+fi
 
 # Time counter
 count_time() {
@@ -121,17 +140,6 @@ count_time() {
 run_sync() {
   FLAG_SYNC_ONLY=y
   trap phantom_not_dream INT
-  [ ! -d ".repo/manifests" ] && { echo -e "${BLD_RED}❌ Repo not initialized.${RST}"; exit 1; }
-  [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] && { echo -e "${BLD_RED}❌ BOT_TOKEN and CHAT_ID/TOPIC_ID must be defined!${RST}"; exit 1; }
-
-  ROM_NAME="$(basename "$ROM_DIR")"
-  ORG_NAME=$(grep -oP '(?<=url = https://github.com/)[^/]+(?=/)' .repo/manifests/.git/config 2>/dev/null | head -n1 || echo "$ROM_NAME")
-  MANIFEST_BRANCH=$(git -C .repo/manifests rev-parse HEAD 2>/dev/null)
-  MANIFEST_BRANCH=$(git -C .repo/manifests branch -r --contains "$MANIFEST_BRANCH" 2>/dev/null | head -n1)
-  MANIFEST_BRANCH=$(echo "$MANIFEST_BRANCH" | sed 's#.*/##; s#.*-> ##' | xargs)
-  if [ -z "$MANIFEST_BRANCH" ]; then
-      MANIFEST_BRANCH=$(grep -oP '(?<=<default revision=")[^"]+' .repo/manifests/default.xml 2>/dev/null)
-  fi
 
   send_msg "Sync of <b>$ORG_NAME</b> (<b>$MANIFEST_BRANCH</b>) started!"
   echo -e "${BLD_CYA}Starting repo sync for $ORG_NAME ($MANIFEST_BRANCH)...${RST}"
@@ -217,12 +225,17 @@ clean_house() {
   source build/envsetup.sh
   breakfast "$DEVICE" "$BUILD_TYPE"
 
+  # Flag status
+  CLEAN_STATUS=""
+
   if [ "${FLAG_CLEAN_BUILD}" = 'y' ]; then
     echo -e "${BLD_BLU}Full clean...${RST}"
     make clean
+    CLEAN_STATUS="(fullclean)"
   elif [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
     echo -e "${BLD_BLU}Installclean...${RST}"
     make installclean
+    CLEAN_STATUS="(installclean)"
   fi
 }
 
@@ -240,23 +253,22 @@ lunching() {
   source build/envsetup.sh
   breakfast "$DEVICE" "$BUILD_TYPE" &>lunch_log.txt
 
-  # Trap para Ctrl+C durante build
-  trap trap_build_ctrlc INT
-
   if grep -q "dumpvars failed with" lunch_log.txt; then
     send_msg "<b>Lunch failed!</b>"
     send_file lunch_log.txt
     exit 1
   else
     BUILD_NUMBER="$(get_build_var BUILD_ID)"
-    PROJECT_VERSION="$(get_build_var PLATFORM_VERSION)"
-    send_msg "<b>🛠 CI | PixelOS A$PROJECT_VERSION</b>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Build type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
+    MSG="<b>🛠 CI | $ORG_NAME</b>%0A"
+        [ -n "$CLEAN_STATUS" ] && MSG+="<b>status:</b> <code>$CLEAN_STATUS</code>%0A"
+        MSG+="<b>branch:</b> <code>$MANIFEST_BRANCH</code>%0A<b>Device:</b> <code>$DEVICE</code>%0A<b>Build type:</b> <code>$BUILD_TYPE</code>%0A<b>ID:</b> <code>$BUILD_NUMBER</code>"
+        send_msg "$MSG"
     building
   fi
 }
 
 building() {
-  mka bacon -j "$JOBS"
+  make bacon -j"$JOBS"
   END_TIME=$(date +%s)
   build_status
 }
