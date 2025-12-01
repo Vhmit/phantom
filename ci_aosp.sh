@@ -306,14 +306,27 @@ building() {
   build_status
 }
 
+wait_for_zip() {
+  local ZIP=""
+  while [ -z "$ZIP" ]; do
+    ZIP=$(find "$OUT_DIR" -type f -name "*.zip" 2>/dev/null | grep -P '[0-9]{8}' | sort -r | head -n1)
+    if [ -z "$ZIP" ]; then
+            echo -e "${BLD_CYA}⏳ Waiting for build ZIP with date in name...${RST}"
+            sleep 3
+        fi
+    done
+  echo "$ZIP"
+}
+
 build_status() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
   BUILD_TIME=$(count_time $START_TIME $END_TIME)
-  BUILD_PACKAGE=$(ls -t "$OUT_DIR"/*.zip 2>/dev/null | head -n1)
+
+  BUILD_PACKAGE=$(wait_for_zip)
+  BUILD_NAME=$(basename "$BUILD_PACKAGE")
+  BUILD_PACKAGE_SHA256=$(check_sha256 "$BUILD_PACKAGE")
 
   if [ -n "$BUILD_PACKAGE" ]; then
-    BUILD_NAME=$(basename "$BUILD_PACKAGE")
-    BUILD_PACKAGE_SHA256=$(check_sha256 "$BUILD_PACKAGE")
     send_msg "<b>Build completed successfully!</b>%0A<b>Total time:</b> $BUILD_TIME"
     uploading
   else
@@ -340,11 +353,14 @@ uploading() {
 
 gofile_upload() {
   local FILE="$1"
-  local RESPONSE=$(curl -s -F "name=$(basename $FILE)" -F "file=@$FILE" "https://store1.gofile.io/contents/uploadfile")
-  local STATUS=$(echo "$RESPONSE" | jq -r '.status')
-  if [ "$STATUS" = "ok" ]; then
-    local URL=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
-    send_msg "<b>Build:</b> <a href=\"$URL\">$BUILD_NAME</a>%0A<b>SHA256:</b> <code>$BUILD_PACKAGE_SHA256</code>"
+  local GOFILE_SERVER
+  GOFILE_SERVER=$(curl -s https://api.gofile.io/servers | grep -oP '"name":"\K[^"]+' | head -n1)
+  
+  local GOFILE_LINK
+  GOFILE_LINK=$(curl -s -F "file=@$FILE" "https://${GOFILE_SERVER}.gofile.io/uploadFile" | grep -oP '"downloadPage":"\K[^"]+' | head -n1)
+
+  if [[ -n "$GOFILE_LINK" ]]; then
+    send_msg "<b>Build:</b> <a href=\"$GOFILE_LINK\">$BUILD_NAME</a>%0A<b>SHA256:</b> <code>$BUILD_PACKAGE_SHA256</code>"
   else
     send_msg "❌ Gofile upload failed!"
   fi
@@ -353,11 +369,14 @@ gofile_upload() {
 pixeldrain_upload() {
   local FILE="$1"
   [ -z "$PIXELDRAIN_API_TOKEN" ] && { send_msg "❌ PIXELDRAIN_API_TOKEN missing!"; return 1; }
-  local RESPONSE=$(curl -s -T "$FILE" -u :$PIXELDRAIN_API_TOKEN https://pixeldrain.com/api/file/)
-  local ID=$(echo "$RESPONSE" | jq -r '.id // empty')
-  if [ -n "$ID" ]; then
-    local URL="https://pixeldrain.com/u/$ID"
-    send_msg "<b>Build:</b> <a href=\"$URL\">$BUILD_NAME</a>%0A<b>SHA256:</b> <code>$BUILD_PACKAGE_SHA256</code>"
+  local RESPONSE
+  RESPONSE=$(curl -s -T "$FILE" -u ":$PIXELDRAIN_API_TOKEN" https://pixeldrain.com/api/file/)
+
+  local HASH
+  HASH=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^"]*')
+    
+  if [[ -n "$HASH" ]]; then
+    send_msg "<b>Build:</b> <a href=\"https://pixeldrain.com/u/$HASH\">$BUILD_NAME</a>%0A<b>SHA256:</b> <code>$BUILD_PACKAGE_SHA256</code>"
   else
     send_msg "❌ PixelDrain upload failed!"
   fi
