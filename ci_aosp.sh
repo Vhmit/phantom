@@ -94,6 +94,16 @@ send_msg() {
        -d disable_web_page_preview=true
 }
 
+edit_msg() {
+  local MSG_ID=$1
+  local MSG=$2
+  curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/editMessageText" \
+       -d "chat_id=$CHAT_ID" \
+       -d "message_id=$MSG_ID" \
+       -d "parse_mode=html" \
+       -d "text=$MSG"
+}
+
 send_file() {
   [ "${FLAG_BUILD_ABORTED:-n}" = "y" ] && return 0
   local FILE="$1"
@@ -134,6 +144,46 @@ count_time() {
             echo "${H} h ${M} min ${S} s"
         fi
     fi
+}
+
+# Generic progress function (for builds)
+TrackProcessProgress() {
+    local PID=$1
+    local LOG_FILE=$2
+    local INTERVAL=${3:-30}
+    local PROGRESS_REGEX=${4:-'\[([[:space:]]*[0-9]+)%[[:space:]]*([0-9]+)?/?([0-9]+)?\]'}
+    local START_TIME=$(date +%s)
+
+    local LAST_PROGRESS=""
+    local LAST_MSG_TIME=0
+    local PROGRESS_MESSAGE_ID=""
+
+    tail -F "$LOG_FILE" 2>/dev/null | while read -r line; do
+        echo "$line"
+        if [[ "$line" =~ $PROGRESS_REGEX ]]; then
+            local PERCENT="${BASH_REMATCH[1]}"
+            local COMPLETED="${BASH_REMATCH[2]}"
+            local TOTAL_REAL="${BASH_REMATCH[3]}"
+            [ -n "$COMPLETED" ] && [ -n "$TOTAL_REAL" ] && LAST_PROGRESS="$PERCENT% ($COMPLETED/$TOTAL_REAL)" || LAST_PROGRESS="$PERCENT%"
+        fi
+        local CURRENT_TIME=$(date +%s)
+        if (( CURRENT_TIME - LAST_MSG_TIME >= INTERVAL )) && [ -n "$LAST_PROGRESS" ]; then
+            local ELAPSED=$(count_time $START_TIME $CURRENT_TIME)
+            local MSG="<b>Build in progress...</b>%0A<code>$LAST_PROGRESS</code>"
+            if [ -z "$PROGRESS_MESSAGE_ID" ]; then
+                local RESPONSE=$(send_msg "$MSG")
+                PROGRESS_MESSAGE_ID=$(echo "$RESPONSE" | grep -Po '(?<="message_id":)\d+')
+            else
+                edit_msg "$PROGRESS_MESSAGE_ID" "$MSG"
+            fi
+            LAST_MSG_TIME=$CURRENT_TIME
+        fi
+    done &
+    local TAIL_PID=$!
+    wait "$PID"
+    local EXIT_CODE=$?
+    kill -TERM "$TAIL_PID" &>/dev/null
+    return $EXIT_CODE
 }
 
 # Repo sync
@@ -301,7 +351,13 @@ lunching() {
 }
 
 building() {
-  make bacon -j"$JOBS"
+  LOG_FILE=$(mktemp)
+  make bacon -j"$JOBS" | tee "$LOG_FILE" &
+  BUILD_PID=$!
+
+  TrackProcessProgress "$BUILD_PID" "$LOG_FILE" 20
+
+  BUILD_EXIT=$?
   END_TIME=$(date +%s)
   build_status
 }
