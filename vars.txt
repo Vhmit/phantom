@@ -1,6 +1,7 @@
 # Build Configuration
 LUNCH_PREFIX=
 LUNCH_RELEASE=
+CONFIG_TARGET=
 
 # Telegram Configuration
 BOT_TOKEN=

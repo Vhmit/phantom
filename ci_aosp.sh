@@ -296,11 +296,11 @@ clean_house() {
 
   if [ "${FLAG_CLEAN_BUILD}" = 'y' ]; then
     echo -e "${BLD_BLU}Full clean...${RST}"
-    make clean
+    m clean
     CLEAN_STATUS="(fullclean)"
   elif [ "${FLAG_INSTALLCLEAN_BUILD}" = 'y' ]; then
     echo -e "${BLD_BLU}Installclean...${RST}"
-    make installclean
+    m installclean
     CLEAN_STATUS="(installclean)"
   fi
 }
@@ -352,7 +352,7 @@ lunching() {
 
 building() {
   LOG_FILE=$(mktemp)
-  make bacon -j"$JOBS" | tee "$LOG_FILE" &
+  m $CONFIG_TARGET -j"$JOBS" | tee "$LOG_FILE" &
   BUILD_PID=$!
 
   TrackProcessProgress "$BUILD_PID" "$LOG_FILE" 20
