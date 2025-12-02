@@ -47,12 +47,6 @@ set -a
 source "$VARS_FILE"
 set +a
 
-# Verify repository has been initialized
-if [ ! -d ".repo/manifests" ]; then
-    echo "❌ Repo not initialized. Please run repo init first."
-    exit 1
-fi
-
 # Guard and interrupt
 phantom_not_dream() {
     echo -e "${BLD_RED}❌ Sync interrupted by user.${RST}"
@@ -191,6 +185,12 @@ run_sync() {
   FLAG_SYNC_ONLY=y
   trap phantom_not_dream INT
 
+# Verify repository has been initialized
+if [ ! -d ".repo/manifests" ]; then
+    echo "❌ Repo not initialized. Please run repo init first."
+    exit 1
+fi
+
   send_msg "Sync of <b>$ORG_NAME</b> (<b>$MANIFEST_BRANCH</b>) started!"
   echo -e "${BLD_CYA}Starting repo sync for $ORG_NAME ($MANIFEST_BRANCH)...${RST}"
 
@@ -266,6 +266,20 @@ fi
 # Bot token and chat/topic ID
 if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
   echo -e "${BLD_RED}ERROR: BOT_TOKEN and CHAT/TOPIC_ID must be defined!${RST}"
+  exit 1
+fi
+
+# Lunch prefix/release
+if [ -z "$LUNCH_PREFIX" ]; then
+  echo -e "${BLD_RED}ERROR: LUNCH_PREFIX or RELEASE must be defined!${RST}"
+  exit 1
+fi
+
+# Config make target
+if [ -z "$CONFIG_TARGET" ]; then
+  echo -e "${BLD_RED}ERROR: CONFIG_TARGET must be defined!${RST}"
+  echo -e "${BLD_RED}Example: $0 bacon, pixelos, derp...${RST}"
+  echo -e "${BLD_RED}Result: $0 m bacon, m pixelos, m derp...${RST}"
   exit 1
 fi
 
